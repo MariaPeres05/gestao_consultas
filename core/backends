@@ -1,0 +1,89 @@
+# core/backends.py - VERSÃO SIMPLIFICADA
+from django.contrib.auth.backends import BaseBackend
+from django.db import connection
+from django.contrib.auth.models import User
+
+class SimpleAuthBackend(BaseBackend):
+    """
+    Backend de autenticação simplificado para teste
+    """
+    
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        print(f"Tentativa de login: {username}")
+        
+        try:
+            with connection.cursor() as cursor:
+                # Buscar utilizador
+                cursor.execute("""
+                    SELECT "ID_UTILIZADOR", "NOMEREGIAO", "EMAIL", "SENHA", "ROLE", "ATIVO"
+                    FROM "UTILIZADOR" 
+                    WHERE ("EMAIL" = %s OR "NOMEREGIAO" = %s) AND "ATIVO" = 1
+                """, [username, username])
+                
+                user_data = cursor.fetchone()
+                
+                if user_data:
+                    id_utilizador, nomeregiao, email, senha_hash, role, ativo = user_data
+                    print(f"Utilizador encontrado: {email}, senha_hash: {senha_hash[:20]}...")
+                    
+                    # Verificação SIMPLES da password (apenas para teste)
+                    if password == senha_hash:  # Comparação direta
+                        user = User()
+                        user.id = id_utilizador
+                        user.username = email
+                        user.email = email
+                        user.first_name = nomeregiao
+                        user.is_active = bool(ativo)
+                        user.is_staff = (role == 3)
+                        user.is_superuser = False
+                        
+                        # Atributos customizados
+                        user.id_utilizador = id_utilizador
+                        user.nomeregiao = nomeregiao
+                        user.role = role
+                        
+                        print(f"Login bem-sucedido para: {email}")
+                        return user
+                    else:
+                        print(f"Password incorreta para: {email}")
+                else:
+                    print(f"Utilizador não encontrado: {username}")
+                        
+        except Exception as e:
+            print(f"Erro na autenticação: {e}")
+            
+        return None
+
+    def get_user(self, user_id):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT "ID_UTILIZADOR", "NOMEREGIAO", "EMAIL", "SENHA", "ROLE", "ATIVO"
+                    FROM "UTILIZADOR" 
+                    WHERE "ID_UTILIZADOR" = %s
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                
+                if user_data:
+                    id_utilizador, nomeregiao, email, senha_hash, role, ativo = user_data
+                    
+                    user = User()
+                    user.id = id_utilizador
+                    user.username = email
+                    user.email = email
+                    user.first_name = nomeregiao
+                    user.is_active = bool(ativo)
+                    user.is_staff = (role == 3)
+                    user.is_superuser = False
+                    
+                    user.id_utilizador = id_utilizador
+                    user.nomeregiao = nomeregiao
+                    user.role = role
+                    
+                    return user
+                    
+        except Exception as e:
+            print(f"Erro ao obter utilizador: {e}")
+            
+        return None

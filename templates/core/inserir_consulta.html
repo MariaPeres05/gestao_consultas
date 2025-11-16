@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Consulta - HealthCare System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --accent: #8b5cf6;
+            --dark: #1f2937;
+            --light: #f8fafc;
+            --gray: #6b7280;
+            --gray-light: #e5e7eb;
+            --error: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border-radius: 16px;
+            --shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 25px 50px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1));
+        }
+
+        .title {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 50px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .required::after {
+            content: " *";
+            color: var(--error);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid var(--gray-light);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: var(--transition);
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: var(--gray);
+            opacity: 0.7;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            transform: translateY(-1px);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.5;
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 20px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--secondary), #059669);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--gray);
+            border: 2px solid var(--gray-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--light);
+            border-color: var(--gray);
+            transform: translateY(-2px);
+        }
+
+        .error {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            color: var(--error);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 4px solid var(--error);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .error::before {
+            content: "⚠️";
+            font-size: 1.2rem;
+        }
+
+        .form-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            color: var(--dark);
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--gray-light);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon input, .input-icon select, .input-icon textarea {
+            padding-left: 50px;
+        }
+
+        .input-icon::before {
+            content: "";
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            z-index: 2;
+        }
+
+        .input-schedule::before { content: "🕐"; }
+        .input-start::before { content: "⏰"; }
+        .input-end::before { content: "⏱️"; }
+        .input-status::before { content: "📊"; }
+        .input-reason::before { content: "📝"; }
+
+        .horario-info {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 1px solid #bae6fd;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .horario-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .horario-details {
+            color: var(--gray);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+
+            .logo {
+                font-size: 2.5rem;
+            }
+        }
+
+        /* Animações */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .card {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .logo {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Estados de loading */
+        .loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .loading .btn-success::after {
+            content: "";
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 30px;
+            font-size: 0.9rem;
+        }
+
+        .datetime-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--gray-light);
+            border-radius: 8px;
+            background: white;
+            color: var(--gray);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .quick-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">📅</div>
+            <h1 class="title">Agendar Nova Consulta</h1>
+            <p class="subtitle">Preencha os dados abaixo para agendar uma nova consulta médica</p>
+        </div>
+
+        <div class="card">
+            {% if error %}
+                <div class="error">
+                    {{ error }}
+                </div>
+            {% endif %}
+
+            <form method="post" id="appointmentForm">
+                {% csrf_token %}
+                
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span>🕐</span>
+                        Informações do Agendamento
+                    </h3>
+                    
+                    <div class="horario-info">
+                        <div class="horario-title">
+                            <span>ℹ️</span>
+                            Horários Disponíveis
+                        </div>
+                        <div class="horario-details">
+                            Selecione um horário disponível da lista abaixo. Cada horário representa um slot de atendimento médico.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group input-icon input-schedule">
+                        <label class="required">Horário Disponível</label>
+                        <select name="id_horario" required>
+                            <option value="">Selecionar um horário disponível</option>
+                            {% for horario in horarios %}
+                                <option value="{{ horario.0 }}">
+                                    {{ horario.1 }} - {{ horario.2 }} • ID: {{ horario.0 }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group input-icon input-start">
+                            <label class="required">Data e Hora de Início</label>
+                            <input type="datetime-local" name="inicio" required>
+                            <div class="quick-actions">
+                                <button type="button" class="quick-btn" data-hours="1">+1h</button>
+                                <button type="button" class="quick-btn" data-hours="2">+2h</button>
+                                <button type="button" class="quick-btn" data-hours="24">Amanhã</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group input-icon input-end">
+                            <label class="required">Data e Hora de Fim</label>
+                            <input type="datetime-local" name="fim" required>
+                            <div class="quick-actions">
+                                <button type="button" class="quick-btn" data-hours="1">+1h</button>
+                                <button type="button" class="quick-btn" data-hours="2">+2h</button>
+                                <button type="button" class="quick-btn" data-hours="24">Amanhã</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span>📋</span>
+                        Detalhes da Consulta
+                    </h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group input-icon input-status">
+                            <label class="required">Estado da Consulta</label>
+                            <select name="estado" required>
+                                {% for estado in estados %}
+                                    <option value="{{ estado }}" 
+                                        {% if estado == 'agendada' %}selected{% endif %}>
+                                        {{ estado|title }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width input-icon input-reason">
+                        <label>Motivo da Consulta</label>
+                        <textarea name="motivo" placeholder="Descreva detalhadamente o motivo da consulta, sintomas, preocupações ou qualquer informação relevante para o médico..."></textarea>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <a href="/consultas/" class="btn btn-secondary">
+                        <span>←</span>
+                        Voltar à Lista
+                    </a>
+                    <button type="submit" class="btn btn-success" id="submitBtn">
+                        <span>✅</span>
+                        Agendar Consulta
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>HealthCare Management System © 2024 • Sistema de agendamento inteligente</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('appointmentForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const startInput = document.querySelector('input[name="inicio"]');
+            const endInput = document.querySelector('input[name="fim"]');
+            const quickButtons = document.querySelectorAll('.quick-btn');
+
+            // Configurar data mínima para os campos de data/hora
+            const now = new Date();
+            const minDateTime = now.toISOString().slice(0, 16);
+            
+            if (startInput) {
+                startInput.min = minDateTime;
+            }
+            if (endInput) {
+                endInput.min = minDateTime;
+            }
+
+            // Funcionalidade dos botões rápidos
+            quickButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const hours = parseInt(this.getAttribute('data-hours'));
+                    const targetInput = this.closest('.form-group').querySelector('input[type="datetime-local"]');
+                    
+                    if (targetInput && hours) {
+                        const currentValue = targetInput.value;
+                        let newDate;
+                        
+                        if (currentValue) {
+                            newDate = new Date(currentValue);
+                        } else {
+                            newDate = new Date();
+                        }
+                        
+                        newDate.setHours(newDate.getHours() + hours);
+                        targetInput.value = newDate.toISOString().slice(0, 16);
+                        
+                        // Disparar evento de change para validação
+                        targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            });
+
+            // Validação em tempo real
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    if (this.hasAttribute('required') && !this.value) {
+                        this.style.borderColor = 'var(--error)';
+                        this.style.background = '#fef2f2';
+                    } else if (this.value) {
+                        this.style.borderColor = 'var(--success)';
+                        this.style.background = '#f0fdf4';
+                    } else {
+                        this.style.borderColor = 'var(--gray-light)';
+                        this.style.background = 'var(--light)';
+                    }
+                });
+
+                input.addEventListener('input', function() {
+                    if (this.value) {
+                        this.style.borderColor = 'var(--primary)';
+                        this.style.background = 'white';
+                    }
+                });
+            });
+
+            // Validação de datas
+            function validateDates() {
+                if (startInput.value && endInput.value) {
+                    const start = new Date(startInput.value);
+                    const end = new Date(endInput.value);
+                    
+                    if (end <= start) {
+                        endInput.style.borderColor = 'var(--error)';
+                        endInput.style.background = '#fef2f2';
+                        return false;
+                    } else {
+                        endInput.style.borderColor = 'var(--success)';
+                        endInput.style.background = '#f0fdf4';
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            if (startInput && endInput) {
+                startInput.addEventListener('change', validateDates);
+                endInput.addEventListener('change', validateDates);
+            }
+
+            // Loading state no submit
+            form.addEventListener('submit', function(e) {
+                if (!validateDates()) {
+                    e.preventDefault();
+                    alert('A data/hora de fim deve ser posterior à data/hora de início!');
+                    return;
+                }
+
+                const allRequired = Array.from(inputs).filter(input => input.hasAttribute('required'));
+                const isValid = allRequired.every(input => input.value.trim() !== '');
+
+                if (isValid) {
+                    submitBtn.innerHTML = '<span>⏳</span> A agendar...';
+                    submitBtn.disabled = true;
+                    form.classList.add('loading');
+                }
+            });
+
+            // Auto-preenchimento inteligente do campo de fim
+            if (startInput) {
+                startInput.addEventListener('change', function() {
+                    if (startInput.value && !endInput.value) {
+                        const startDate = new Date(startInput.value);
+                        startDate.setHours(startDate.getHours() + 1); // +1 hora por padrão
+                        endInput.value = startDate.toISOString().slice(0, 16);
+                    }
+                });
+            }
+
+            // Efeito de hover no card
+            const card = document.querySelector('.card');
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-5px) scale(1.01)';
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>

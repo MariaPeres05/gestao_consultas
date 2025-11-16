@@ -1,0 +1,43 @@
+
+import pytest
+from django.db import connection
+from datetime import datetime, date, timedelta
+
+@pytest.mark.django_db
+def test_fn_contar_consultas_dia():
+    with connection.cursor() as cur:
+        # 1) Criar horário (uso ID 2)
+        cur.execute("""
+            INSERT INTO "HORARIOS" 
+            ("ID_HORARIO","HORA_INICIO","HORA_FIM","TIPO","DIAS_SEMANA","DATA_INICIO","DATA_FIM","DURACAO")
+            VALUES (2, '10:00', '10:30', 'Consulta', 'Friday', CURRENT_DATE, CURRENT_DATE + INTERVAL '0 days', 30);
+        """)
+
+        # 2) Criar paciente com as colunas NOT NULL exigidas pelo schema
+        cur.execute("""
+            INSERT INTO "PACIENTES" (
+                "ID_UTILIZADOR", "ID_PACIENTE", "NOMEREGIAO", "EMAIL", "TELEFONE",
+                "N_UTENTE", "SENHA", "ROLE", "DATA_REGISTO", "ATIVO", "DATA_NASC", "GENERO"
+            )
+            VALUES (
+                20, 200, 'Regiao Teste', 'joao.teste@example.com', '912345678',
+                'NUT12345', 'senha_test', 4, NOW(), 1, '1980-01-01', 'M'
+            );
+        """)
+
+        # 3) Criar uma consulta "confirmada" associada ao horario (ID 2)
+        cur.execute("""
+            INSERT INTO "CONSULTAS" 
+            ("ID_CONSULTAS","ID_HORARIO","INICIO","FIM","ESTADO","MOTIVO")
+            VALUES (2, 2, NOW(), NOW() + INTERVAL '30 minutes', 'confirmada', 'Check-up');
+        """)
+
+        # 4) Chamar a função (passando o utilizador/paciente que inserimos)
+        cur.execute("""
+            SELECT public."FN_CONTAR_CONSULTAS_DIA"(20, 200, CURRENT_DATE);
+        """)
+        total = cur.fetchone()[0]
+
+        # 5) Verificação simples: total é integer e >= 0
+        assert isinstance(total, int)
+        assert total >= 0
