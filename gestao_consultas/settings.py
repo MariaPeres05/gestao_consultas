@@ -69,15 +69,12 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-#AUTH_USER_MODEL = 'core.Utilizador'
-
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+AUTH_USER_MODEL = "core.Utilizador"
 
 AUTHENTICATION_BACKENDS = [
-    'core.backends.SimpleAuthBackend',
+    "core.auth_backend.UtilizadorBackend",
 ]
+
 
 import sys
 

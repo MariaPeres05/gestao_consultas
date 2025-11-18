@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #eef0f2; }
+        .topbar {
+            background: #007bff; padding: 15px; color: white;
+            display: flex; justify-content: space-between;
+        }
+        .container {
+            margin: 40px auto; width: 80%;
+            padding: 20px; background: white; border-radius: 10px;
+        }
+        a { color: white; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div>Olá, {{ request.user.nome }}</div>
+    <div><a href="{% url 'logout' %}">Sair</a></div>
+</div>
+
+<div class="container">
+    <h2>Bem-vindo ao Painel</h2>
+    <p>Aqui podes colocar dados do utilizador, consultas, estatísticas, etc.</p>
+</div>
+
+</body>
+</html>

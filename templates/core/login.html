@@ -1,89 +1,54 @@
 <!-- templates/core/login.html -->
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
+    <meta charset="UTF-8">
     <title>Login</title>
     <style>
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+        body { font-family: Arial, sans-serif; background: #f2f2f2; }
+        .container {
+            width: 380px; margin: 80px auto; padding: 30px;
+            background: white; border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        input, button {
+            width: 100%; padding: 10px; margin-top: 10px;
+            border-radius: 5px; border: 1px solid #ccc;
         }
         button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+            background: #007bff; color: white; cursor: pointer;
         }
-        .messages {
-            margin-bottom: 20px;
-        }
-        .alert {
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
+        button:hover { background: #0056b3; }
+        .errors { color: red; margin-top: 10px; }
+        a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2>Login</h2>
-        
+
+<div class="container">
+    <h2>Iniciar sessão</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.email.label_tag }}
+        {{ form.email }}
+
+        {{ form.password.label_tag }}
+        {{ form.password }}
+
+        <button type="submit">Entrar</button>
+
         {% if messages %}
-        <div class="messages">
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
+            <div class="errors">
+                {% for m in messages %}
+                    <p>{{ m }}</p>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
         {% endif %}
-        
-        <form method="post">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="username">Email ou Nome:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit">Entrar</button>
-        </form>
-        
-        <p style="text-align: center; margin-top: 15px;">
-            <a href="{% url 'registro' %}">Criar nova conta</a>
-        </p>
-    </div>
+    </form>
+
+    <p>Ainda não tens conta? <a href="{% url 'register' %}">Registar</a></p>
+</div>
+
 </body>
 </html>

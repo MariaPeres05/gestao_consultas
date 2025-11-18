@@ -522,7 +522,7 @@
                         <i class="fas fa-sign-in-alt"></i>
                         Entrar
                     </a>
-                    <a href="{% url 'registro' %}" class="auth-btn register-btn">
+                    <a href="{% url 'register' %}" class="auth-btn register-btn">
                         <i class="fas fa-user-plus"></i>
                         Registar
                     </a>
@@ -532,7 +532,7 @@
 
         <div class="header">
             <div class="logo">🏥</div>
-            <h1 class="title">HealthCare</h1>
+            <h1 class="title">{{ system_name }}</h1>
             <p class="subtitle">Sistema integrado de gestão de consultas médicas</p>
         </div>
 
@@ -565,7 +565,7 @@
             </div>
 
             <div class="dashboard">
-                <a href="{% url 'marcar_consulta' %}" class="card">
+                <a href="{% url 'dashboard' %}" class="card">
                     <div class="card-icon"><i class="fas fa-calendar-plus"></i></div>
                     <h3 class="card-title">Marcar Consulta</h3>
                     <p class="card-description">
@@ -583,7 +583,7 @@
                     </div>
                 </a>
 
-                <a href="{% url 'listar_consultas' %}" class="card">
+                <a href="{% url 'dashboard' %}" class="card">
                     <div class="card-icon"><i class="fas fa-list-alt"></i></div>
                     <h3 class="card-title">Minhas Consultas</h3>
                     <p class="card-description">
@@ -601,7 +601,7 @@
                     </div>
                 </a>
 
-                <a href="{% url 'listar_receitas' %}" class="card">
+                <a href="{% url 'dashboard' %}" class="card">
                     <div class="card-icon"><i class="fas fa-file-prescription"></i></div>
                     <h3 class="card-title">Minhas Receitas</h3>
                     <p class="card-description">
@@ -637,7 +637,7 @@
                     </div>
                     <i class="fas fa-chevron-right"></i>
                 </a>
-                <a href="{% url 'listar_faturas' %}" class="quick-action">
+                <a href="{% url 'dashboard' %}" class="quick-action">
                     <i class="fas fa-file-invoice-dollar"></i>
                     <div class="quick-action-text">
                         <div class="quick-action-title">Minhas Faturas</div>
@@ -669,7 +669,7 @@
             </div>
 
             <div class="dashboard">
-                <a href="{% url 'agenda_medica' %}" class="card" id="agenda-medica-link">
+                <a href="{% url 'dashboard' %}" class="card" id="agenda-medica-link">
                     <div class="card-icon"><i class="fas fa-calendar-alt"></i></div>
                     <h3 class="card-title">Minha Agenda</h3>
                     <p class="card-description">
@@ -902,7 +902,7 @@
 
         <div class="footer">
             <p class="footer-text">
-                HealthCare Management System © 2024 • 
+                {{ system_name }} © {% now "Y" %} • 
                 <span style="color: rgba(255,255,255,0.9);">Sistema desenvolvido para excelência em gestão de saúde</span>
             </p>
         </div>

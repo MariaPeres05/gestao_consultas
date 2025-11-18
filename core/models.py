@@ -1,238 +1,212 @@
-# core/models.py - VERSÃO CORRIGIDA
+# core/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 
+# ---------- Custom user manager (simples) ----------
 class UtilizadorManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, nome, senha=None, **extra_fields):
         if not email:
-            raise ValueError('O email é obrigatório')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
+            raise ValueError("O utilizador deve ter email")
+
+        user = self.model(
+            email=self.normalize_email(email),
+            nome=nome,
+            **extra_fields
+        )
+        # Garantir que data_registo está preenchida
+        if not getattr(user, 'data_registo', None):
+            user.data_registo = timezone.now()
+
+        user.set_password(senha)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault('role', 5)
-        extra_fields.setdefault('ativo', 1)
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email, password, **extra_fields)
+    def create_superuser(self, email, nome, senha=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("role", "admin")
+
+        return self.create_user(email, nome, senha, **extra_fields)
+
 
 class Utilizador(AbstractBaseUser, PermissionsMixin):
-    ROLE_CHOICES = [
-        (1, 'Paciente'),
-        (2, 'Médico'),
-        (3, 'Administrativo'),
-        (4, 'Enfermeiro'),
-        (5, 'Superuser'),
-    ]
-    
     id_utilizador = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50, default='N/A')
-    email = models.EmailField(max_length=255, unique=True)
-    telefone = models.CharField(max_length=15, default='000000000')
-    n_utente = models.CharField(max_length=15, default='000000000')
+    nome = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    telefone = models.CharField(max_length=20, null=True, blank=True)
+    n_utente = models.CharField(max_length=20, null=True, blank=True)
     senha = models.CharField(max_length=255)
-    role = models.IntegerField(choices=ROLE_CHOICES, default=1)
-    data_registo = models.DateTimeField(default=timezone.now)
-    ativo = models.SmallIntegerField(default=1)
-    foto_perfil = models.CharField(max_length=255, blank=True, null=True)
-    
-    is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    is_superuser = models.BooleanField(default=False)
-    last_login = models.DateTimeField(null=True, blank=True)
-    date_joined = models.DateTimeField(default=timezone.now)
-    
-    groups = models.ManyToManyField(
-        'auth.Group',
-        verbose_name='groups',
-        blank=True,
-        related_name="utilizador_set",
-        related_query_name="utilizador",
-    )
-    user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        verbose_name='user permissions',
-        blank=True,
-        related_name="utilizador_set",
-        related_query_name="utilizador",
-    )
-    
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['nomeregiao', 'telefone', 'n_utente']
-    
-    objects = UtilizadorManager()
-    
-    class Meta:
-        db_table = '"UTILIZADOR"'
-    
-    def __str__(self):
-        return f"{self.nomeregiao} ({self.email})"
-    
-    def get_role_display(self):
-        return dict(self.ROLE_CHOICES).get(self.role, 'Desconhecido')
+    role = models.CharField(max_length=20)
+    data_registo = models.DateTimeField()
+    ativo = models.BooleanField(default=True)
+    foto_perfil = models.TextField(null=True, blank=True)
 
-# Modelos básicos (mantenha os que já tem)
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["nome"]
+
+    objects = UtilizadorManager()
+
+    @property
+    def is_staff(self):
+        return self.role == "admin"
+
+    @property
+    def is_active(self):
+        return self.ativo
+
+    def __str__(self):
+        return self.nome
+
+
+    # override set_password to use bcrypt-compatible crypt()
+    def set_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+        self.senha = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.senha)
+
+# ---------- Regiao ----------
 class Regiao(models.Model):
-    id_regiao = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50)
-    tiporegiao = models.CharField(max_length=50)
-    
+    id_regiao = models.AutoField(primary_key=True, db_column='id_regiao')
+    nome = models.CharField(max_length=50, db_column='nome')
+    tipo_regiao = models.CharField(max_length=50, db_column='tipo_regiao')
+
     class Meta:
         db_table = '"REGIAO"'
 
+    def __str__(self):
+        return self.nome
+
+# ---------- Unidade de Saude ----------
 class UnidadeSaude(models.Model):
-    id_unidade = models.AutoField(primary_key=True)
-    id_regiao = models.ForeignKey(Regiao, on_delete=models.CASCADE, db_column='ID_REGIAO')
-    nome_unidade = models.CharField(max_length=255)
-    morada_unidade = models.CharField(max_length=255)
-    tipo_unidade = models.CharField(max_length=255)
-    
+    id_unidade = models.AutoField(primary_key=True, db_column='id_unidade')
+    id_regiao = models.ForeignKey(Regiao, on_delete=models.CASCADE, db_column='id_regiao', related_name='unidades')
+    nome_unidade = models.CharField(max_length=255, db_column='nome_unidade')
+    morada_unidade = models.CharField(max_length=255, db_column='morada_unidade')
+    tipo_unidade = models.CharField(max_length=255, db_column='tipo_unidade')
+
     class Meta:
         db_table = '"UNIDADE_DE_SAUDE"'
 
-class Especialidades(models.Model):
-    id_especialidades = models.AutoField(primary_key=True)
-    nome_especialidade = models.CharField(max_length=1024)
-    descricao = models.CharField(max_length=1024)
-    
+    def __str__(self):
+        return self.nome_unidade
+
+# ---------- Especialidades ----------
+class Especialidade(models.Model):
+    id_especialidade = models.AutoField(primary_key=True, db_column='id_especialidade')
+    nome_especialidade = models.CharField(max_length=255, db_column='nome_especialidade')
+    descricao = models.CharField(max_length=255, blank=True, null=True, db_column='descricao')
+
     class Meta:
         db_table = '"ESPECIALIDADES"'
 
-class Horarios(models.Model):
-    id_horario = models.AutoField(primary_key=True)
-    hora_inicio = models.CharField(max_length=255)
-    hora_fim = models.CharField(max_length=255)
-    tipo = models.CharField(max_length=255)
-    dias_semana = models.CharField(max_length=255)
-    data_inicio = models.DateField()
-    data_fim = models.DateField()
-    duracao = models.CharField(max_length=255)
-    
-    class Meta:
-        db_table = '"HORARIOS"'
+    def __str__(self):
+        return self.nome_especialidade
 
-# Modelos com estrutura COMPATÍVEL com a BD
-class Medicos(models.Model):
-    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='ID_UTILIZADOR')
-    id_medico = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50)
-    email = models.EmailField(max_length=255)
-    telefone = models.CharField(max_length=15)
-    n_utente = models.CharField(max_length=15)
-    senha = models.CharField(max_length=255)
-    role = models.IntegerField()
-    data_registo = models.DateTimeField()
-    ativo = models.SmallIntegerField()
-    foto_perfil = models.CharField(max_length=255, blank=True, null=True)
-    numero_ordem = models.CharField(max_length=1024)
-    
+# ---------- Medicos ----------
+class Medico(models.Model):
+    id_medico = models.AutoField(primary_key=True, db_column='id_medico')
+    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='id_utilizador', related_name='medicos')
+    numero_ordem = models.CharField(max_length=50, db_column='numero_ordem')
+    id_especialidade = models.ForeignKey(Especialidade, on_delete=models.SET_NULL, db_column='id_especialidade', blank=True, null=True, related_name='medicos')
+
     class Meta:
         db_table = '"MEDICOS"'
-        unique_together = (('id_utilizador', 'id_medico'),)
 
-class Pacientes(models.Model):
-    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='ID_UTILIZADOR')
-    id_paciente = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50)
-    email = models.EmailField(max_length=255)
-    telefone = models.CharField(max_length=15)
-    n_utente = models.CharField(max_length=15)
-    senha = models.CharField(max_length=255)
-    role = models.IntegerField()
-    data_registo = models.DateTimeField()
-    ativo = models.SmallIntegerField()
-    foto_perfil = models.CharField(max_length=255, blank=True, null=True)
-    data_nasc = models.DateField()
-    genero = models.CharField(max_length=255)
-    morada = models.CharField(max_length=255, blank=True, null=True)
-    alergias = models.CharField(max_length=255, blank=True, null=True)
-    observacoes = models.CharField(max_length=255, blank=True, null=True)
-    
-    class Meta:
-        db_table = '"PACIENTES"'
-        unique_together = (('id_utilizador', 'id_paciente'),)
+    def __str__(self):
+        return f"Medico {self.id_medico} - user {self.id_utilizador.email}"
 
-# Adicione também estes modelos que faltam:
+# ---------- Enfermeiro ----------
 class Enfermeiro(models.Model):
-    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='ID_UTILIZADOR')
-    id_enfermeiro = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50)
-    email = models.EmailField(max_length=255)
-    telefone = models.CharField(max_length=15)
-    n_utente = models.CharField(max_length=15)
-    senha = models.CharField(max_length=255)
-    role = models.IntegerField()
-    data_registo = models.DateTimeField()
-    ativo = models.SmallIntegerField()
-    foto_perfil = models.CharField(max_length=255, blank=True, null=True)
-    n_ordem_enf = models.CharField(max_length=255)
-    
+    id_enfermeiro = models.AutoField(primary_key=True, db_column='id_enfermeiro')
+    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='id_utilizador', related_name='enfermeiros')
+    n_ordem_enf = models.CharField(max_length=50, db_column='n_ordem_enf')
+
     class Meta:
         db_table = '"ENFERMEIRO"'
-        unique_together = (('id_utilizador', 'id_enfermeiro'),)
 
-class Administrativo(models.Model):
-    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='ID_UTILIZADOR')
-    id_admin = models.AutoField(primary_key=True)
-    nomeregiao = models.CharField(max_length=50)
-    email = models.EmailField(max_length=255)
-    telefone = models.CharField(max_length=15)
-    n_utente = models.CharField(max_length=15)
-    senha = models.CharField(max_length=255)
-    role = models.IntegerField()
-    data_registo = models.DateTimeField()
-    ativo = models.SmallIntegerField()
-    foto_perfil = models.CharField(max_length=255, blank=True, null=True)
-    
+    def __str__(self):
+        return f"Enf. {self.id_enfermeiro} - user {self.id_utilizador.email}"
+
+# ---------- Pacientes ----------
+class Paciente(models.Model):
+    id_paciente = models.AutoField(primary_key=True, db_column='id_paciente')
+    id_utilizador = models.ForeignKey(Utilizador, on_delete=models.CASCADE, db_column='id_utilizador', related_name='pacientes')
+    data_nasc = models.DateField(db_column='data_nasc')
+    genero = models.CharField(max_length=50, db_column='genero')
+    morada = models.CharField(max_length=255, blank=True, null=True, db_column='morada')
+    alergias = models.CharField(max_length=255, blank=True, null=True, db_column='alergias')
+    observacoes = models.CharField(max_length=255, blank=True, null=True, db_column='observacoes')
+
     class Meta:
-        db_table = '"ADMINISTRATIVO"'
-        unique_together = (('id_utilizador', 'id_admin'),)
+        db_table = '"PACIENTES"'
 
-# Mantenha os outros modelos (Consultas, Faturas, Receitas) como estão
-class Consultas(models.Model):
-    ESTADO_CHOICES = [
-        ('agendada', 'Agendada'),
-        ('confirmada', 'Confirmada'),
-        ('concluida', 'Concluída'),
-        ('cancelada', 'Cancelada'),
-    ]
-    
-    id_consultas = models.AutoField(primary_key=True, db_column='ID_CONSULTAS')
-    id_fatura = models.IntegerField(blank=True, null=True)
-    id_horario = models.ForeignKey(Horarios, on_delete=models.CASCADE, db_column='ID_HORARIO')
-    inicio = models.DateTimeField()
-    fim = models.DateTimeField()
-    estado = models.CharField(max_length=255, choices=ESTADO_CHOICES)
-    motivo = models.CharField(max_length=255, blank=True, null=True)
-    
+    def __str__(self):
+        return f"Paciente {self.id_paciente} - user {self.id_utilizador.email}"
+
+# ---------- Disponibilidade ----------
+class Disponibilidade(models.Model):
+    id_disponibilidade = models.AutoField(primary_key=True, db_column='id_disponibilidade')
+    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', related_name='disponibilidades')
+    id_unidade = models.ForeignKey(UnidadeSaude, on_delete=models.CASCADE, db_column='id_unidade', related_name='disponibilidades')
+    data = models.DateField(db_column='data')
+    hora_inicio = models.TimeField(db_column='hora_inicio')
+    hora_fim = models.TimeField(db_column='hora_fim')
+    duracao_slot = models.IntegerField(db_column='duracao_slot')
+    status_slot = models.CharField(max_length=20, db_column='status_slot')
+
+    class Meta:
+        db_table = '"DISPONIBILIDADE"'
+
+    def __str__(self):
+        return f"{self.id_medico} @ {self.id_unidade} - {self.data}"
+
+# ---------- Consultas ----------
+class Consulta(models.Model):
+    id_consulta = models.AutoField(primary_key=True, db_column='id_consulta')
+    id_paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, db_column='id_paciente', related_name='consultas')
+    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', related_name='consultas')
+    id_disponibilidade = models.ForeignKey(Disponibilidade, on_delete=models.CASCADE, db_column='id_disponibilidade', related_name='consultas')
+    data_consulta = models.DateField(db_column='data_consulta')
+    hora_consulta = models.TimeField(db_column='hora_consulta')
+    estado = models.CharField(max_length=50, db_column='estado')
+    motivo = models.CharField(max_length=255, blank=True, null=True, db_column='motivo')
+
     class Meta:
         db_table = '"CONSULTAS"'
 
-class Faturas(models.Model):
-    id_fatura = models.AutoField(primary_key=True)
-    id_consultas = models.ForeignKey(Consultas, on_delete=models.CASCADE, db_column='ID_CONSULTAS')
-    valor = models.CharField(max_length=255)
-    metodo_pagamento = models.CharField(max_length=255)
-    estado = models.CharField(max_length=255)
-    data_pagamento = models.CharField(max_length=255)
-    
+    def __str__(self):
+        return f"Consulta {self.id_consulta} - {self.data_consulta} {self.hora_consulta}"
+
+# ---------- Faturas ----------
+class Fatura(models.Model):
+    id_fatura = models.AutoField(primary_key=True, db_column='id_fatura')
+    id_consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, db_column='id_consulta', related_name='faturas')
+    valor = models.DecimalField(max_digits=10, decimal_places=2, db_column='valor')
+    metodo_pagamento = models.CharField(max_length=50, db_column='metodo_pagamento')
+    estado = models.CharField(max_length=50, db_column='estado')
+    data_pagamento = models.DateField(blank=True, null=True, db_column='data_pagamento')
+
     class Meta:
         db_table = '"FATURAS"'
 
-class Receitas(models.Model):
-    id_receita = models.AutoField(primary_key=True, db_column='ID_RECEITA')
-    id_consultas = models.ForeignKey(Consultas, on_delete=models.CASCADE, db_column='ID_CONSULTAS')
-    id_fatura = models.ForeignKey(Faturas, on_delete=models.CASCADE, db_column='ID_FATURA')
-    medicamento = models.CharField(max_length=255)
-    dosagem = models.CharField(max_length=255)
-    instrucoes = models.CharField(max_length=255)
-    data_prescricao = models.DateField()
-    
+    def __str__(self):
+        return f"Fatura {self.id_fatura} - {self.valor}"
+
+# ---------- Receitas ----------
+class Receita(models.Model):
+    id_receita = models.AutoField(primary_key=True, db_column='id_receita')
+    id_consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, db_column='id_consulta', related_name='receitas')
+    medicamento = models.CharField(max_length=255, db_column='medicamento')
+    dosagem = models.CharField(max_length=255, db_column='dosagem')
+    instrucoes = models.CharField(max_length=255, blank=True, null=True, db_column='instrucoes')
+    data_prescricao = models.DateField(db_column='data_prescricao')
+
     class Meta:
         db_table = '"RECEITAS"'
-        verbose_name = 'Receita'
-        verbose_name_plural = 'Receitas'
+
+    def __str__(self):
+        return f"Receita {self.id_receita} - {self.medicamento}"
