@@ -37,7 +37,20 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
     telefone = models.CharField(max_length=20, null=True, blank=True)
     n_utente = models.CharField(max_length=20, null=True, blank=True)
     senha = models.CharField(max_length=255)
-    role = models.CharField(max_length=20)
+    # explicit role choices
+    ROLE_PACIENTE = "paciente"
+    ROLE_MEDICO = "medico"
+    ROLE_ENFERMEIRO = "enfermeiro"
+    ROLE_ADMIN = "admin"
+
+    ROLE_CHOICES = [
+        (ROLE_PACIENTE, "Paciente"),
+        (ROLE_MEDICO, "Médico"),
+        (ROLE_ENFERMEIRO, "Enfermeiro"),
+        (ROLE_ADMIN, "Administrador"),
+    ]
+
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_PACIENTE)
     data_registo = models.DateTimeField()
     ativo = models.BooleanField(default=True)
     foto_perfil = models.TextField(null=True, blank=True)
@@ -49,7 +62,7 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_staff(self):
-        return self.role == "admin"
+        return self.role == self.ROLE_ADMIN
 
     @property
     def is_active(self):
@@ -57,6 +70,23 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.nome
+
+    # convenience helpers
+    @property
+    def is_paciente(self):
+        return self.role == self.ROLE_PACIENTE
+
+    @property
+    def is_medico(self):
+        return self.role == self.ROLE_MEDICO
+
+    @property
+    def is_enfermeiro(self):
+        return self.role == self.ROLE_ENFERMEIRO
+
+    @property
+    def is_admin(self):
+        return self.role == self.ROLE_ADMIN
 
 
     # override set_password to use bcrypt-compatible crypt()
