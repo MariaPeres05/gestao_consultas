@@ -3,13 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <title>Minhas Consultas</title>
-  <style>body{font-family:Arial,sans-serif;background:#f7fafc;padding:30px} .box{max-width:700px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}</style>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}
+    .box{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+    .muted{color:#666}
+    .btn{background:#0b64d1;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
+    form.inline{display:inline}
+  </style>
 </head>
 <body>
   <div class="box">
-    <h2>Minhas Consultas (placeholder)</h2>
-    <p>Aqui serão listadas as consultas do paciente. Actualmente é apenas um placeholder.</p>
-    <p><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
+    <h2>Minhas Consultas</h2>
+    {% if consultas and consultas|length > 0 %}
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Hora</th>
+            <th>Médico</th>
+            <th>Unidade</th>
+            <th>Estado</th>
+            <th>Acções</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in consultas %}
+            <tr>
+              <td>{{ c.data_consulta }}</td>
+              <td>{{ c.hora_consulta }}</td>
+              <td>{{ c.id_medico.id_utilizador.nome }}</td>
+              <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
+              <td>{{ c.estado }}</td>
+              <td>
+                {% if c.estado|lower == 'marcada' or c.estado|lower == 'agendada' %}
+                  <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="cancel">
+                    <input type="hidden" name="consulta_id" value="{{ c.id_consulta }}">
+                    <button type="submit" class="btn">Cancelar</button>
+                  </form>
+                {% else %}
+                  <span class="muted">Sem ações</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Ainda não tem consultas marcadas.</p>
+    {% endif %}
+
+    <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
   </div>
 </body>
 </html>
