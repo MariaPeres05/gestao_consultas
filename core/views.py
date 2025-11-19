@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 
 from .forms import LoginForm, RegisterForm
 from .models import (
@@ -30,14 +31,13 @@ def login_view(request):
             )
             if user:
                 login(request, user)
-                # Redireciona pacientes para a área do paciente, outros para o dashboard
-                try:
-                    role = getattr(user, "role", None)
-                except Exception:
-                    role = None
+                # Redirecionar segundo o papel do utilizador
+                role = getattr(user, "role", None)
 
                 if role == "paciente":
                     return redirect("patient_home")
+                if role == "medico":
+                    return redirect("medico_home")
                 return redirect("dashboard")
             messages.error(request, "Credenciais incorretas.")
     else:
@@ -210,6 +210,63 @@ def listar_consultas(request):
 def listar_faturas(request):
     """Placeholder para listar faturas do paciente."""
     return render(request, "core/patient_faturas.html")
+
+
+@login_required
+def medico_home(request):
+    """Página inicial para médicos após login.
+
+    Mostra opções rápidas: gerir disponibilidades, emitir receitas, ver consultas.
+    """
+    # tentar obter o registo Medico associado
+    medico = Medico.objects.filter(id_utilizador=request.user).first()
+    if not medico:
+        messages.error(request, "Não foi encontrado um registo de médico para este utilizador.")
+        return redirect("dashboard")
+
+    context = {
+        "medico": medico,
+    }
+    return render(request, "core/medico_home.html", context)
+
+
+@login_required
+def medico_disponibilidades(request):
+    medico = Medico.objects.filter(id_utilizador=request.user).first()
+    if not medico:
+        messages.error(request, "Acesso indisponível: não é um médico.")
+        return redirect("dashboard")
+
+    disponibilidades = Disponibilidade.objects.filter(id_medico=medico).order_by("data", "hora_inicio")
+    return render(request, "core/medico_disponibilidades.html", {"medico": medico, "disponibilidades": disponibilidades})
+
+
+@login_required
+def medico_receitas(request):
+    medico = Medico.objects.filter(id_utilizador=request.user).first()
+    if not medico:
+        messages.error(request, "Acesso indisponível: não é um médico.")
+        return redirect("dashboard")
+
+    # Por enquanto listamos receitas associadas às consultas do médico
+    receitas = []
+    try:
+        receitas = [r for c in Consulta.objects.filter(id_medico=medico) for r in c.receitas.all()]
+    except Exception:
+        receitas = []
+
+    return render(request, "core/medico_receitas.html", {"medico": medico, "receitas": receitas})
+
+
+@login_required
+def medico_consultas(request):
+    medico = Medico.objects.filter(id_utilizador=request.user).first()
+    if not medico:
+        messages.error(request, "Acesso indisponível: não é um médico.")
+        return redirect("dashboard")
+
+    consultas = Consulta.objects.filter(id_medico=medico).order_by("data_consulta", "hora_consulta")
+    return render(request, "core/medico_consultas.html", {"medico": medico, "consultas": consultas})
 
 
 def home(request):

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <title>Disponibilidades - Médico</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}.box{max-width:900px;margin:0 auto;background:#fff;padding:22px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #eee}</style>
+</head>
+<body>
+  <div class="box">
+    <h2>Minhas Disponibilidades</h2>
+    <p>Lista de slots associados às suas unidades.</p>
+
+    {% if disponibilidades and disponibilidades|length > 0 %}
+      <table>
+        <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th>Duração (min)</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for d in disponibilidades %}
+            <tr>
+              <td>{{ d.data }}</td>
+              <td>{{ d.hora_inicio }}</td>
+              <td>{{ d.hora_fim }}</td>
+              <td>{{ d.duracao_slot }}</td>
+              <td>{{ d.status_slot }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Nenhuma disponibilidade encontrada.</p>
+    {% endif %}
+
+    <p style="margin-top:12px"><a href="{% url 'medico_home' %}">Voltar</a></p>
+  </div>
+</body>
+</html>

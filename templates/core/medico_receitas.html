@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <title>Receitas - Médico</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}.box{max-width:900px;margin:0 auto;background:#fff;padding:22px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #eee}</style>
+</head>
+<body>
+  <div class="box">
+    <h2>Receitas Emitidas</h2>
+
+    {% if receitas and receitas|length > 0 %}
+      <table>
+        <thead><tr><th>Consulta</th><th>Medicamento</th><th>Dosagem</th><th>Instruções</th><th>Data</th></tr></thead>
+        <tbody>
+          {% for r in receitas %}
+            <tr>
+              <td>{{ r.id_consulta.id_consulta }}</td>
+              <td>{{ r.medicamento }}</td>
+              <td>{{ r.dosagem }}</td>
+              <td>{{ r.instrucoes }}</td>
+              <td>{{ r.data_prescricao }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Nenhuma receita encontrada.</p>
+    {% endif %}
+
+    <p style="margin-top:12px"><a href="{% url 'medico_home' %}">Voltar</a></p>
+  </div>
+</body>
+</html>
