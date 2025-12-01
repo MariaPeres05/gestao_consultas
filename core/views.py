@@ -18,6 +18,7 @@ from .models import (
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 
 def login_view(request):
@@ -203,13 +204,80 @@ def agendar_consulta(request):
 
 
 def listar_consultas(request):
-    """Placeholder para listar consultas do paciente."""
-    return render(request, "core/patient_consultas.html")
+    """Lista as consultas do paciente autenticado e permite cancelar.
+
+    - GET: mostra lista de consultas associadas ao `Paciente` do utilizador.
+    - POST: aceita `action=cancel` e `consulta_id` para marcar a consulta como cancelada.
+    """
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    paciente = Paciente.objects.filter(id_utilizador=request.user).first()
+    if not paciente:
+        messages.error(request, "Não foi encontrado um registo de paciente para este utilizador.")
+        return redirect("patient_home")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "cancel":
+            consulta_id = request.POST.get("consulta_id")
+            if consulta_id:
+                try:
+                    with transaction.atomic():
+                        consulta = Consulta.objects.select_for_update().get(id_consulta=consulta_id, id_paciente=paciente)
+                        consulta.estado = "cancelada"
+                        consulta.save()
+                        messages.success(request, "Consulta cancelada com sucesso.")
+                except Consulta.DoesNotExist:
+                    messages.error(request, "Consulta não encontrada ou não pertence ao paciente.")
+            else:
+                messages.error(request, "ID da consulta em falta.")
+
+        return redirect("listar_consultas")
+
+    consultas = Consulta.objects.filter(id_paciente=paciente).order_by("-data_consulta", "hora_consulta")
+
+    return render(request, "core/patient_consultas.html", {"consultas": consultas})
 
 
 def listar_faturas(request):
-    """Placeholder para listar faturas do paciente."""
-    return render(request, "core/patient_faturas.html")
+    """Lista as faturas do paciente e permite marcar como paga.
+
+    - GET: mostra faturas associadas às consultas do paciente autenticado.
+    - POST: aceita `action=pay` com `fatura_id` e `metodo_pagamento` para marcar a fatura como paga.
+    """
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    paciente = Paciente.objects.filter(id_utilizador=request.user).first()
+    if not paciente:
+        messages.error(request, "Não foi encontrado um registo de paciente para este utilizador.")
+        return redirect("patient_home")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "pay":
+            fatura_id = request.POST.get("fatura_id")
+            metodo = request.POST.get("metodo_pagamento")
+            if fatura_id:
+                try:
+                    with transaction.atomic():
+                        f = Fatura.objects.select_for_update().get(id_fatura=fatura_id, id_consulta__id_paciente=paciente)
+                        f.estado = "paga"
+                        f.metodo_pagamento = metodo or f.metodo_pagamento
+                        f.data_pagamento = timezone.now().date()
+                        f.save()
+                        messages.success(request, "Fatura marcada como paga.")
+                except Fatura.DoesNotExist:
+                    messages.error(request, "Fatura não encontrada ou não pertence às suas consultas.")
+            else:
+                messages.error(request, "ID da fatura em falta.")
+
+        return redirect("listar_faturas")
+
+    # GET
+    faturas = Fatura.objects.filter(id_consulta__id_paciente=paciente).order_by("-data_pagamento")
+    return render(request, "core/patient_faturas.html", {"faturas": faturas, "paciente": paciente})
 
 
 @login_required
@@ -265,8 +333,14 @@ def medico_consultas(request):
         messages.error(request, "Acesso indisponível: não é um médico.")
         return redirect("dashboard")
 
-    consultas = Consulta.objects.filter(id_medico=medico).order_by("data_consulta", "hora_consulta")
-    return render(request, "core/medico_consultas.html", {"medico": medico, "consultas": consultas})
+    faturas = (
+        Fatura.objects.filter(id_consulta__id_paciente=paciente)
+        .select_related("id_consulta__id_medico__id_utilizador")
+        .order_by("-data_pagamento", "-id_fatura")
+    )
+
+    context = {"faturas": faturas, "paciente": paciente}
+    return render(request, "core/patient_faturas.html", context)
 
 
 def home(request):
