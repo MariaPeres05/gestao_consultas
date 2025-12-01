@@ -1,128 +1,72 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    <meta charset="UTF-8" />
-    <title>Faturas do Paciente</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f0f4f8;
-            padding: 30px;
-        }
-        .box {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 24px;
-            border-radius: 10px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-        }
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #2b4c7e;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-        }
-        table th, table td {
-            padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        table th {
-            background: #2b4c7e;
-            color: #fff;
-        }
-        .btn-pay {
-            padding: 8px 14px;
-            background: #059669;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .btn-pay:hover {
-            background: #047857;
-        }
-        .btn-disabled {
-            padding: 8px 14px;
-            background: #9ca3af;
-            color: white;
-            border-radius: 6px;
-            cursor: not-allowed;
-        }
-        .back-link {
-            margin-top: 20px;
-            display: block;
-            text-align: center;
-            font-size: 16px;
-            color: #1e40af;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Faturas</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}
+    .box{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+    .muted{color:#666}
+    .btn{background:#0b64d1;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
+    form.inline{display:inline}
+  </style>
 </head>
 <body>
-<div class="box">
-    <h2>Faturas do Paciente</h2>
+  <div class="box">
+    <h2>Minhas Faturas</h2>
 
-    {% if faturas %}
-    <table>
+    {% if faturas and faturas|length > 0 %}
+      <table>
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Consulta</th>
-                <th>Valor (€)</th>
-                <th>Estado</th>
-                <th>Método</th>
-                <th>Pagamento</th>
-                <th>Ação</th>
-            </tr>
+          <tr>
+            <th>ID</th>
+            <th>Consulta (data)</th>
+            <th>Médico</th>
+            <th>Valor</th>
+            <th>Método</th>
+            <th>Estado</th>
+            <th>Data Pagamento</th>
+            <th>Ações</th>
+          </tr>
         </thead>
         <tbody>
-            {% for f in faturas %}
+          {% for f in faturas %}
             <tr>
-                <td>{{ f.id_fatura }}</td>
-                <td>{{ f.id_consulta.data_consulta }} {{ f.id_consulta.hora_consulta }}</td>
-                <td>{{ f.valor }}</td>
-                <td>{{ f.estado|title }}</td>
-                <td>{{ f.metodo_pagamento|default:"-" }}</td>
-                <td>
-                    {% if f.data_pagamento %}
-                        {{ f.data_pagamento }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if f.estado == "pendente" %}
-                    <form method="POST">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="pay">
-                        <input type="hidden" name="fatura_id" value="{{ f.id_fatura }}">
-                        <select name="metodo_pagamento" required>
-                            <option value="">Método…</option>
-                            <option value="MB Way">MB Way</option>
-                            <option value="Multibanco">Multibanco</option>
-                            <option value="Cartão de Crédito">Cartão de Crédito</option>
-                        </select>
-                        <button class="btn-pay">Pagar</button>
-                    </form>
-                    {% else %}
-                        <span class="btn-disabled">Pago</span>
-                    {% endif %}
-                </td>
+              <td>{{ f.id_fatura }}</td>
+              <td>{{ f.id_consulta.data_consulta }}</td>
+              <td>{{ f.id_consulta.id_medico.id_utilizador.nome }}</td>
+              <td>{{ f.valor }}</td>
+              <td>{{ f.metodo_pagamento }}</td>
+              <td>{{ f.estado }}</td>
+              <td>{% if f.data_pagamento %}{{ f.data_pagamento }}{% else %}-{% endif %}</td>
+              <td>
+                {% if f.estado|lower != 'paga' %}
+                  <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="pay">
+                    <input type="hidden" name="fatura_id" value="{{ f.id_fatura }}">
+                    <select name="metodo_pagamento">
+                      <option value="MBWAY">MBWAY</option>
+                      <option value="Cartao">Cartão</option>
+                      <option value="Transferencia">Transferência</option>
+                    </select>
+                    <button type="submit" class="btn">Marcar como paga</button>
+                  </form>
+                {% else %}
+                  <span class="muted">Já paga</span>
+                {% endif %}
+              </td>
             </tr>
-            {% endfor %}
+          {% endfor %}
         </tbody>
-    </table>
-
+      </table>
     {% else %}
-    <p style="text-align:center; font-size: 18px; padding: 20px;">Nenhuma fatura encontrada.</p>
+      <p class="muted">Não foram encontradas faturas associadas às suas consultas.</p>
     {% endif %}
 
-    <a class="back-link" href="{% url 'patient_home' %}">Voltar à área do paciente</a>
-</div>
+    <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
+  </div>
 </body>
 </html>

@@ -36,6 +36,10 @@
         {{ form.password.label_tag }}
         {{ form.password }}
 
+        <div style="margin-top:8px">
+            {{ form.remember_me }} {{ form.remember_me.label_tag }}
+        </div>
+
         <button type="submit">Entrar</button>
 
         {% if messages %}

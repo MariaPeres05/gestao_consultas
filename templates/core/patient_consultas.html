@@ -9,36 +9,35 @@
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
     .muted{color:#666}
-    .btn{background:#d33;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
+    .btn{background:#0b64d1;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
     form.inline{display:inline}
   </style>
 </head>
 <body>
   <div class="box">
     <h2>Minhas Consultas</h2>
-
     {% if consultas and consultas|length > 0 %}
       <table>
         <thead>
           <tr>
-            <th>ID</th>
             <th>Data</th>
             <th>Hora</th>
             <th>Médico</th>
+            <th>Unidade</th>
             <th>Estado</th>
-            <th>Ações</th>
+            <th>Acções</th>
           </tr>
         </thead>
         <tbody>
           {% for c in consultas %}
             <tr>
-              <td>{{ c.id_consulta }}</td>
               <td>{{ c.data_consulta }}</td>
               <td>{{ c.hora_consulta }}</td>
               <td>{{ c.id_medico.id_utilizador.nome }}</td>
+              <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
               <td>{{ c.estado }}</td>
               <td>
-                {% if c.estado|lower != 'cancelada' %}
+                {% if c.estado|lower == 'marcada' or c.estado|lower == 'agendada' %}
                   <form method="post" class="inline">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="cancel">
@@ -46,7 +45,7 @@
                     <button type="submit" class="btn">Cancelar</button>
                   </form>
                 {% else %}
-                  <span class="muted">Já cancelada</span>
+                  <span class="muted">Sem ações</span>
                 {% endif %}
               </td>
             </tr>
@@ -54,7 +53,7 @@
         </tbody>
       </table>
     {% else %}
-      <p class="muted">Não encontrou consultas agendadas.</p>
+      <p class="muted">Ainda não tem consultas marcadas.</p>
     {% endif %}
 
     <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>

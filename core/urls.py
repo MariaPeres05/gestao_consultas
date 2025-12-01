@@ -13,6 +13,8 @@ urlpatterns = [
     path("medico/receitas/", views.medico_receitas, name="medico_receitas"),
     path("medico/consultas/", views.medico_consultas, name="medico_consultas"),
     path("paciente/agendar/", views.agendar_consulta, name="marcar_consulta"),
+    path("paciente/agenda/", views.agenda_medica, name="patient_agenda"),
+    path("api/disponibilidades/", views.api_disponibilidades, name="api_disponibilidades"),
     path("paciente/consultas/", views.listar_consultas, name="listar_consultas"),
     path("paciente/faturas/", views.listar_faturas, name="listar_faturas"),
 ]
