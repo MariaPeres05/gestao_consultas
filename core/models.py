@@ -198,12 +198,14 @@ class Disponibilidade(models.Model):
 class Consulta(models.Model):
     id_consulta = models.AutoField(primary_key=True, db_column='id_consulta')
     id_paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, db_column='id_paciente', related_name='consultas')
-    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', related_name='consultas')
-    id_disponibilidade = models.ForeignKey(Disponibilidade, on_delete=models.CASCADE, db_column='id_disponibilidade', related_name='consultas')
+    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', blank=True, null=True, related_name='consultas')
+    id_disponibilidade = models.ForeignKey(Disponibilidade, on_delete=models.CASCADE, db_column='id_disponibilidade', blank=True, null=True, related_name='consultas')
     data_consulta = models.DateField(db_column='data_consulta')
     hora_consulta = models.TimeField(db_column='hora_consulta')
     estado = models.CharField(max_length=50, db_column='estado')
     motivo = models.CharField(max_length=255, blank=True, null=True, db_column='motivo')
+    medico_aceitou = models.BooleanField(default=False, db_column='medico_aceitou')
+    paciente_aceitou = models.BooleanField(default=False, db_column='paciente_aceitou')
 
     class Meta:
         db_table = '"CONSULTAS"'

@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recusar Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="medico-header">
+        <div class="container">
+            <h1>❌ Recusar Consulta</h1>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="alert warning">
+            <strong>⚠️ Atenção:</strong> Esta ação irá cancelar a consulta. O paciente será notificado.
+        </div>
+
+        <div class="info-box">
+            <p><strong>Paciente:</strong> {{ consulta.id_paciente.id_utilizador.nome }}</p>
+            <p><strong>Data:</strong> {{ consulta.data_consulta|date:"d/m/Y" }} {{ consulta.hora_consulta }}</p>
+            <p><strong>Motivo:</strong> {{ consulta.motivo_consulta }}</p>
+        </div>
+
+        <div class="content">
+            <h2>Motivo da Recusa</h2>
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="motivo">Por favor, indique o motivo da recusa:</label>
+                    <textarea id="motivo" name="motivo" required
+                              placeholder="Ex: Conflito de agenda, Emergência, Fora da minha especialidade, etc."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-danger">❌ Confirmar Recusa</button>
+                <a href="{% url 'medico_dashboard' %}" class="btn btn-secondary">← Cancelar</a>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

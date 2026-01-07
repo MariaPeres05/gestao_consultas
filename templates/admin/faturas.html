@@ -1,0 +1,111 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Faturas - MediPulse Admin</title>
+    <link rel="stylesheet" href="{% static 'admin/style.css' %}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { background: white; padding: 20px 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .nav-menu { background: white; padding: 15px; border-radius: 10px; margin-bottom: 30px; }
+        .nav-menu a { display: inline-block; padding: 10px 20px; margin: 5px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; }
+        .content { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        .btn-primary { background: #667eea; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: bold; }
+        tr:hover { background: #f8f9fa; }
+        .filters { margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+        .filters select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .stat-box { padding: 20px; background: #f8f9fa; border-radius: 10px; text-align: center; }
+        .stat-box h3 { color: #666; font-size: 14px; margin-bottom: 10px; }
+        .stat-box .number { font-size: 32px; font-weight: bold; }
+        .stat-box .number.green { color: #27ae60; }
+        .stat-box .number.red { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Gestão de Faturas</h1>
+            <a href="{% url 'logout' %}" class="btn btn-danger">Sair</a>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'admin_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'admin_utilizadores' %}">👥 Utilizadores</a>
+            <a href="{% url 'admin_regioes' %}">🗺️ Regiões</a>
+            <a href="{% url 'admin_especialidades' %}">🏥 Especialidades</a>
+            <a href="{% url 'admin_unidades' %}">🏢 Unidades</a>
+            <a href="{% url 'admin_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'admin_faturas' %}" style="background: #764ba2;">💰 Faturas</a>
+            <a href="{% url 'admin_relatorios' %}">📈 Relatórios</a>
+        </div>
+
+        <div class="content">
+            <h2 style="margin-bottom: 20px;">Estatísticas Financeiras</h2>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>Total Faturado (Pago)</h3>
+                    <div class="number green">€{{ total_faturado|floatformat:2 }}</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Total Pendente</h3>
+                    <div class="number red">€{{ total_pendente|floatformat:2 }}</div>
+                </div>
+            </div>
+
+            <form method="get" class="filters">
+                <label>Filtrar por Estado:</label>
+                <select name="estado" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="pendente" {% if estado_filter == 'pendente' %}selected{% endif %}>Pendente</option>
+                    <option value="paga" {% if estado_filter == 'paga' %}selected{% endif %}>Paga</option>
+                </select>
+            </form>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Consulta</th>
+                        <th>Paciente</th>
+                        <th>Valor</th>
+                        <th>Método</th>
+                        <th>Estado</th>
+                        <th>Data Pagamento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in faturas %}
+                    <tr>
+                        <td>{{ f.id_fatura }}</td>
+                        <td>{{ f.id_consulta.id_consulta }}</td>
+                        <td>{{ f.id_consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>€{{ f.valor }}</td>
+                        <td>{{ f.metodo_pagamento|capfirst }}</td>
+                        <td>{{ f.estado|capfirst }}</td>
+                        <td>{{ f.data_pagamento|date:"d/m/Y"|default:"-" }}</td>
+                        <td>
+                            <a href="{% url 'admin_fatura_editar' f.id_fatura %}" class="btn btn-primary">✏️ Editar</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center;">Nenhuma fatura encontrada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

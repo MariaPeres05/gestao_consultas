@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MediPulse - Paciente{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{% block header_title %}👤 Área do Paciente{% endblock %}</h1>
+            <div class="user-info">
+                <span>{{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="nav-menu">
+            <a href="{% url 'patient_home' %}" {% block nav_home %}{% endblock %}>🏠 Home</a>
+            <a href="{% url 'marcar_consulta' %}" {% block nav_agendar %}{% endblock %}>📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}" {% block nav_consultas %}{% endblock %}>🏥 Minhas Consultas</a>
+            <a href="{% url 'listar_faturas' %}" {% block nav_faturas %}{% endblock %}>💰 Faturas</a>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

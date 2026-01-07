@@ -1,57 +1,56 @@
 <!-- templates/core/login.html -->
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f2f2f2; }
-        .container {
-            width: 380px; margin: 80px auto; padding: 30px;
-            background: white; border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        input, button {
-            width: 100%; padding: 10px; margin-top: 10px;
-            border-radius: 5px; border: 1px solid #ccc;
-        }
-        button {
-            background: #007bff; color: white; cursor: pointer;
-        }
-        button:hover { background: #0056b3; }
-        .errors { color: red; margin-top: 10px; }
-        a { color: #007bff; text-decoration: none; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
-<body>
+<body class="auth-page">
 
 <div class="container">
-    <h2>Iniciar sessão</h2>
+    <div class="logo">🏥</div>
+    <h2>Bem-vindo ao MediPulse</h2>
+    <p class="subtitle">Inicie sessão para continuar</p>
+
+    {% if messages %}
+        <div class="errors">
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
 
     <form method="post">
         {% csrf_token %}
-        {{ form.email.label_tag }}
-        {{ form.email }}
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" 
+                   id="email" 
+                   name="email" 
+                   placeholder="seu@email.com" 
+                   required 
+                   autofocus>
+        </div>
 
-        {{ form.password.label_tag }}
-        {{ form.password }}
-
-        <div style="margin-top:8px">
-            {{ form.remember_me }} {{ form.remember_me.label_tag }}
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" 
+                   id="password" 
+                   name="password" 
+                   placeholder="••••••••" 
+                   required>
         </div>
 
         <button type="submit">Entrar</button>
-
-        {% if messages %}
-            <div class="errors">
-                {% for m in messages %}
-                    <p>{{ m }}</p>
-                {% endfor %}
-            </div>
-        {% endif %}
     </form>
 
-    <p>Ainda não tens conta? <a href="{% url 'register' %}">Registar</a></p>
+    <div class="register-link">
+        <p>Ainda não tens conta? <a href="{% url 'register' %}">Registar</a></p>
+    </div>
 </div>
 
 </body>

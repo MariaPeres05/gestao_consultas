@@ -1,0 +1,145 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios e Estatísticas - MediPulse Admin</title>
+    <link rel="stylesheet" href="{% static 'admin/style.css' %}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { background: white; padding: 20px 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .nav-menu { background: white; padding: 15px; border-radius: 10px; margin-bottom: 30px; }
+        .nav-menu a { display: inline-block; padding: 10px 20px; margin: 5px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; }
+        .content { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; background: #667eea; color: white; }
+        .filters { margin-bottom: 30px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+        .filters input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-box { background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center; }
+        .stat-box h4 { color: #666; font-size: 14px; margin-bottom: 10px; }
+        .stat-box .number { font-size: 32px; color: #667eea; font-weight: bold; }
+        .section { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .section h3 { color: #667eea; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #667eea; color: white; font-weight: bold; }
+        tr:hover { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Relatórios e Estatísticas</h1>
+            <a href="{% url 'logout' %}" class="btn btn-danger">Sair</a>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'admin_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'admin_utilizadores' %}">👥 Utilizadores</a>
+            <a href="{% url 'admin_regioes' %}">🗺️ Regiões</a>
+            <a href="{% url 'admin_especialidades' %}">🏥 Especialidades</a>
+            <a href="{% url 'admin_unidades' %}">🏢 Unidades</a>
+            <a href="{% url 'admin_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'admin_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'admin_relatorios' %}" style="background: #764ba2;">📈 Relatórios</a>
+        </div>
+
+        <div class="content">
+            <form method="get" class="filters">
+                <label><strong>Período:</strong>
+                    <input type="date" name="data_inicio" value="{{ data_inicio|date:'Y-m-d' }}">
+                    até
+                    <input type="date" name="data_fim" value="{{ data_fim|date:'Y-m-d' }}">
+                    <button type="submit" class="btn">Filtrar</button>
+                </label>
+            </form>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h4>💰 Receita Total</h4>
+                    <div class="number">€{{ receitas.total|default:0|floatformat:2 }}</div>
+                </div>
+                <div class="stat-box">
+                    <h4>📄 Nº Faturas Pagas</h4>
+                    <div class="number">{{ receitas.count|default:0 }}</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📊 Consultas por Estado</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estado</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in consultas_por_estado %}
+                        <tr>
+                            <td>{{ item.estado|capfirst }}</td>
+                            <td>{{ item.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" style="text-align: center;">Sem dados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h3>👨‍⚕️ Top 10 Médicos (Consultas)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Médico</th>
+                            <th>Consultas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in consultas_por_medico %}
+                        <tr>
+                            <td>{{ item.id_medico__id_utilizador__nome }}</td>
+                            <td>{{ item.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" style="text-align: center;">Sem dados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h3>🏥 Consultas por Especialidade</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Especialidade</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in consultas_por_especialidade %}
+                        <tr>
+                            <td>{{ item.id_medico__id_especialidade__nome_especialidade|default:"Sem especialidade" }}</td>
+                            <td>{{ item.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" style="text-align: center;">Sem dados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
