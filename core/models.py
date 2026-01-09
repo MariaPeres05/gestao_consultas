@@ -219,8 +219,6 @@ class Consulta(models.Model):
     hora_consulta = models.TimeField(db_column='hora_consulta')
     estado = models.CharField(max_length=50, db_column='estado')
     motivo = models.CharField(max_length=255, blank=True, null=True, db_column='motivo')
-<<<<<<< Updated upstream
-=======
     medico_aceitou = models.BooleanField(default=False, db_column='medico_aceitou')
     paciente_aceitou = models.BooleanField(default=False, db_column='paciente_aceitou')
     
@@ -241,7 +239,6 @@ class Consulta(models.Model):
     modificado_por = models.ForeignKey('Utilizador', on_delete=models.SET_NULL, null=True, blank=True,
                                         related_name='consultas_modificadas', db_column='modificado_por')
     modificado_em = models.DateTimeField(auto_now=True, null=True, blank=True, db_column='modificado_em')
->>>>>>> Stashed changes
 
     class Meta:
         db_table = '"CONSULTAS"'
