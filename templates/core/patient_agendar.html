@@ -1,94 +1,238 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  <meta charset="UTF-8">
-  <title>Agendar Consulta</title>
-  <style>
-    body{font-family:Arial,sans-serif;background:#f7fafc;padding:30px}
-    .box{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
-    .filters{display:flex;gap:12px;flex-wrap:wrap}
-    select,input[type=date]{padding:8px;border-radius:6px;border:1px solid #dbe6f2}
-    .slot{border:1px solid #eef6ff;padding:12px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between;align-items:center}
-    .btn{background:#0b64d1;color:#fff;padding:8px 12px;border-radius:8px;text-decoration:none}
-    .muted{color:#666;font-size:0.95rem}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <style>
+        .autocomplete-container { position: relative; }
+        .autocomplete-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .autocomplete-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        .autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .autocomplete-results.show { display: block; }
+        .autocomplete-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .autocomplete-item:hover { background: #f8f9fa; }
+        .autocomplete-item .name { font-weight: 500; color: #333; }
+        .autocomplete-item .details { font-size: 12px; color: #666; margin-top: 2px; }
+        .no-results, .loading { padding: 10px; text-align: center; color: #999; font-size: 13px; }
+        .selected-item {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+        .selected-item .clear { margin-left: 8px; color: #666; cursor: pointer; font-weight: bold; }
+        .selected-item .clear:hover { color: #d32f2f; }
+    </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Agendar Consulta</h2>
-    <p class="muted">Use os filtros para procurar disponibilidades. Depois marque um slot disponível.</p>
-
-    <form method="get" class="filters" style="margin-top:12px">
-      <div>
-        <label>Especialidade<br>
-          <select name="especialidade">
-            <option value="">(Todas)</option>
-            {% for e in especialidades %}
-              <option value="{{ e.id_especialidade }}" {% if selected.especialidade == e.id_especialidade|stringformat:"s" %}selected{% endif %}>{{ e.nome_especialidade }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-
-      <div>
-        <label>Unidade<br>
-          <select name="unidade">
-            <option value="">(Todas)</option>
-            {% for u in unidades %}
-              <option value="{{ u.id_unidade }}" {% if selected.unidade == u.id_unidade|stringformat:"s" %}selected{% endif %}>{{ u.nome_unidade }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-
-      <div>
-        <label>Médico<br>
-          <select name="medico">
-            <option value="">(Qualquer)</option>
-            {% for m in medicos %}
-              <option value="{{ m.id_medico }}" {% if selected.medico == m.id_medico|stringformat:"s" %}selected{% endif %}>{{ m.id_utilizador.nome }}{% if m.numero_ordem %} — {{ m.numero_ordem }}{% endif %}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-
-      <div>
-        <label>Data<br>
-          <input type="date" name="data" value="{{ selected.data }}">
-        </label>
-      </div>
-
-      <div style="align-self:end">
-        <button type="submit" class="btn">Procurar</button>
-      </div>
-    </form>
-
-    <hr style="margin:18px 0">
-
-    {% if disponibilidades and disponibilidades|length > 0 %}
-      <h3>Disponibilidades encontradas ({{ disponibilidades|length }})</h3>
-      <div>
-        {% for d in disponibilidades %}
-          <div class="slot">
-            <div>
-              <div><strong>{{ d.id_medico.id_utilizador.nome }}</strong> — {{ d.id_medico.id_especialidade.nome_especialidade }}</div>
-              <div class="muted">{{ d.id_unidade.nome_unidade }} — {{ d.data }} às {{ d.hora_inicio }}</div>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Agendar Consulta</h1>
+            <div class="user-info">
+                <span>{{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
             </div>
-            <div>
-              <form method="post" style="margin:0">
-                {% csrf_token %}
-                <input type="hidden" name="disponibilidade_id" value="{{ d.id_disponibilidade }}">
-                <button type="submit" class="btn">Marcar</button>
-              </form>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="muted">Nenhuma disponibilidade encontrada com esses filtros. Tente alterar os filtros ou remover a data.</p>
-    {% endif %}
+        </div>
 
-    <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
-  </div>
+        <div class="nav-menu">
+            <a href="{% url 'marcar_consulta' %}" class="active">📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}">🏥 Minhas Consultas</a>
+            <a href="{% url 'patient_receitas' %}">💊 Receitas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'patient_perfil_editar' %}">👤 Perfil</a>
+        </div>
+
+        <div class="content-section">
+            <h2>Procurar Disponibilidades</h2>
+            <p>Use os filtros para procurar disponibilidades. Depois marque um slot disponível.</p>
+
+            <form method="get">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Especialidade</label>
+                        <select name="especialidade">
+                            <option value="">(Todas)</option>
+                            {% for e in especialidades %}
+                            <option value="{{ e.id_especialidade }}" {% if selected.especialidade == e.id_especialidade|stringformat:"s" %}selected{% endif %}>{{ e.nome_especialidade }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Unidade</label>
+                        <select name="unidade">
+                            <option value="">(Todas)</option>
+                            {% for u in unidades %}
+                            <option value="{{ u.id_unidade }}" {% if selected.unidade == u.id_unidade|stringformat:"s" %}selected{% endif %}>{{ u.nome_unidade }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Médico</label>
+                        <div class="autocomplete-container">
+                            <input 
+                                type="text" 
+                                id="medico-search" 
+                                class="autocomplete-input"
+                                placeholder="Pesquisar médico ou especialidade..."
+                                autocomplete="off">
+                            <div id="medico-results" class="autocomplete-results"></div>
+                            <input type="hidden" name="medico" id="medico">
+                        </div>
+                        <div id="medico-selected"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="data" value="{{ selected.data }}">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">🔍 Procurar</button>
+            </form>
+        </div>
+
+        {% if disponibilidades and disponibilidades|length > 0 %}
+        <div class="content-section">
+            <h2>Resultados ({{ disponibilidades|length }} disponibilidade{% if disponibilidades|length > 1 %}s{% endif %})</h2>
+            {% for d in disponibilidades %}
+            <div class="slot">
+                <div class="slot-info">
+                    <h4>{{ d.id_medico.id_utilizador.nome }}</h4>
+                    <p>
+                        🏥 {{ d.id_unidade.nome_unidade }}
+                        | 🔬 {{ d.id_medico.id_especialidade.nome_especialidade }}
+                        <br>
+                        📅 {{ d.data|date:"d/m/Y" }}
+                        • 🕒 {{ d.hora_inicio }} - {{ d.hora_fim }}
+                    </p>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="disponibilidade_id" value="{{ d.id_disponibilidade }}">
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label for="hora_consulta_{{ d.id_disponibilidade }}">Selecione o horário de início:</label>
+                        <select name="hora_consulta" id="hora_consulta_{{ d.id_disponibilidade }}" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            <option value="">Escolha um horário...</option>
+                            {% for slot in d.time_slots %}
+                                <option value="{{ slot.time }}" {% if not slot.available %}disabled{% endif %}>
+                                    {{ slot.time }} {% if not slot.available %}(Ocupado){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success" style="margin-top: 10px;">✅ Marcar</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% elif 'especialidade' in request.GET or 'unidade' in request.GET or 'medico' in request.GET or 'data' in request.GET %}
+        <div class="content-section">
+            <p style="text-align: center; color: #666; padding: 20px;">
+                Nenhuma disponibilidade encontrada com esses filtros.<br>
+                Tente alterar os filtros ou remover a data.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+    <script>
+        let searchTimeout;
+        const medicoSearch = document.getElementById('medico-search');
+        const medicoResults = document.getElementById('medico-results');
+        const medicoHidden = document.getElementById('medico');
+        const medicoSelected = document.getElementById('medico-selected');
+        
+        medicoSearch.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length < 2) {
+                medicoResults.classList.remove('show');
+                return;
+            }
+            clearTimeout(searchTimeout);
+            medicoResults.innerHTML = '<div class="loading">Procurando...</div>';
+            medicoResults.classList.add('show');
+            searchTimeout = setTimeout(() => {
+                fetch(`/paciente/api/search-medicos/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results.length === 0) {
+                            medicoResults.innerHTML = '<div class="no-results">Nenhum médico encontrado</div>';
+                        } else {
+                            medicoResults.innerHTML = data.results.map(item => `
+                                <div class="autocomplete-item" data-id="${item.id}" data-nome="${item.nome}">
+                                    <div class="name">Dr(a). ${item.nome}</div>
+                                    <div class="details">${item.especialidade}${item.numero_ordem ? ' • Nº ' + item.numero_ordem : ''}</div>
+                                </div>
+                            `).join('');
+                            document.querySelectorAll('#medico-results .autocomplete-item').forEach(item => {
+                                item.addEventListener('click', function() {
+                                    selectMedico(this.dataset.id, this.dataset.nome);
+                                });
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        medicoResults.innerHTML = '<div class="no-results">Erro ao procurar</div>';
+                    });
+            }, 300);
+        });
+        
+        function selectMedico(id, nome) {
+            medicoHidden.value = id;
+            medicoSearch.value = '';
+            medicoResults.classList.remove('show');
+            medicoSelected.innerHTML = `<div class="selected-item">✓ Dr(a). ${nome}<span class="clear" onclick="clearMedico()">✕</span></div>`;
+            // Trigger form submission to refresh with selected doctor
+            document.querySelector('form[method="get"]').submit();
+        }
+        
+        function clearMedico() {
+            medicoHidden.value = '';
+            medicoSelected.innerHTML = '';
+            medicoSearch.focus();
+        }
+        
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-container')) {
+                medicoResults.classList.remove('show');
+            }
+        });
+    </script>
 </body>
 </html>

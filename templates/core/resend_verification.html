@@ -1,24 +1,23 @@
-<!-- templates/core/login.html -->
 {% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - MediPulse</title>
+    <title>Reenviar Verificação - MediPulse</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body class="auth-page">
 
 <div class="container">
-    <div class="logo">🏥</div>
-    <h2>Bem-vindo ao MediPulse</h2>
-    <p class="subtitle">Inicie sessão para continuar</p>
+    <div class="logo">📧</div>
+    <h2>Reenviar Email de Verificação</h2>
+    <p class="subtitle">Não recebeu o email de verificação? Enviaremos outro.</p>
 
     {% if messages %}
         <div class="errors">
             {% for message in messages %}
-                <p>{{ message|safe }}</p>
+                <p>{{ message }}</p>
             {% endfor %}
         </div>
     {% endif %}
@@ -36,21 +35,12 @@
                    autofocus>
         </div>
 
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" 
-                   id="password" 
-                   name="password" 
-                   placeholder="••••••••" 
-                   required>
-        </div>
-
-        <button type="submit">Entrar</button>
+        <button type="submit">Reenviar Email de Verificação</button>
     </form>
 
     <div class="register-link">
-        <p>Esqueceu a password? <a href="{% url 'password_reset_request' %}">Recuperar</a></p> 
-        <p>Ainda não tem conta</template> conta? <a href="{% url 'register' %}">Registar</a></p>
+        <p><a href="{% url 'login' %}">← Voltar ao Login</a></p>
+        <p>Já verificou o email? <a href="{% url 'login' %}">Fazer Login</a></p>
     </div>
 </div>
 

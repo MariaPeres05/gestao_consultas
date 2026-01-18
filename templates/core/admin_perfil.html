@@ -1,0 +1,84 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <style>
+        .info-text { color: #666; font-size: 13px; margin-top: 5px; }
+        .divider { border-top: 2px solid #e0e0e0; margin: 30px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Meu Perfil</h1>
+            <div class="user-info">
+                <span>{{ user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'admin_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'admin_utilizadores' %}">👥 Utilizadores</a>
+            <a href="{% url 'admin_regioes' %}">🗺️ Regiões</a>
+            <a href="{% url 'admin_especialidades' %}">🏥 Especialidades</a>
+            <a href="{% url 'admin_unidades' %}">🏢 Unidades</a>
+            <a href="{% url 'admin_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'admin_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'admin_relatorios' %}">📈 Relatórios</a>
+            <a href="{% url 'profile_view' %}" class="active">👤 Perfil</a>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}danger{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="content-section">
+            <h2 style="margin-bottom: 20px; color: #ee0979;">Informações do Administrador</h2>
+            
+            <form method="post" action="{% url 'profile_edit' %}">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{ user.email }}" readonly>
+                    <p class="info-text">O email não pode ser alterado</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="nome">Nome Completo *</label>
+                    <input type="text" id="nome" name="nome" value="{{ user.nome }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="telefone">Telefone *</label>
+                    <input type="tel" id="telefone" name="telefone" value="{{ user.telefone }}" required placeholder="999999999">
+                </div>
+
+                <div class="divider"></div>
+
+                <h3 style="margin-bottom: 15px; color: #ee0979;">Segurança</h3>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <a href="{% url 'change_password' %}" class="btn btn-warning">🔒 Alterar Password</a>
+                    <p class="info-text">Altere a sua password regularmente para manter a conta segura</p>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary">💾 Guardar Alterações</button>
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

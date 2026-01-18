@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Enviado - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body class="auth-page">
+
+<div class="container">
+    <div class="logo">✅</div>
+    <h2>Email Enviado</h2>
+    <p class="subtitle">Verifique a sua caixa de entrada</p>
+
+    <div style="text-align: center; padding: 20px; background: #e8f5e9; border-radius: 10px; margin: 20px 0;">
+        <p style="margin: 0; color: #2e7d32;">
+            📬 Se o email existir no nosso sistema, receberá um link de verificação em breve.
+        </p>
+    </div>
+
+    <div style="text-align: center; color: #666; font-size: 14px; margin: 20px 0;">
+        <p>Não se esqueça de verificar a pasta de spam!</p>
+        <p>O link é válido por 24 horas.</p>
+    </div>
+
+    <div class="register-link">
+        <p><a href="{% url 'login' %}">← Voltar ao Login</a></p>
+        <p>Precisa de ajuda? <a href="mailto:suporte@medipulse.pt">Contacte o Suporte</a></p>
+    </div>
+</div>
+
+</body>
+</html>

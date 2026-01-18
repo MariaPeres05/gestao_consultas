@@ -1,62 +1,83 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  <meta charset="UTF-8">
-  <title>Minhas Consultas</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}
-    .box{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-    .muted{color:#666}
-    .btn{background:#0b64d1;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
-    form.inline{display:inline}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Consultas - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=2">
 </head>
 <body>
-  <div class="box">
-    <h2>Minhas Consultas</h2>
-    {% if consultas and consultas|length > 0 %}
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Hora</th>
-            <th>Médico</th>
-            <th>Unidade</th>
-            <th>Estado</th>
-            <th>Acções</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for c in consultas %}
-            <tr>
-              <td>{{ c.data_consulta }}</td>
-              <td>{{ c.hora_consulta }}</td>
-              <td>{{ c.id_medico.id_utilizador.nome }}</td>
-              <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
-              <td>{{ c.estado }}</td>
-              <td>
-                {% if c.estado|lower == 'marcada' or c.estado|lower == 'agendada' %}
-                  <form method="post" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="cancel">
-                    <input type="hidden" name="consulta_id" value="{{ c.id_consulta }}">
-                    <button type="submit" class="btn">Cancelar</button>
-                  </form>
-                {% else %}
-                  <span class="muted">Sem ações</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="muted">Ainda não tem consultas marcadas.</p>
-    {% endif %}
+    <div class="container">
+        <div class="header">
+            <h1>📋 Minhas Consultas</h1>
+            <div class="user-info">
+                <span>{{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
 
-    <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
-  </div>
+        <div class="nav-menu">
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}" class="active">🏥 Minhas Consultas</a>
+            <a href="{% url 'patient_receitas' %}">💊 Receitas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'patient_perfil_editar' %}">👤 Perfil</a>
+        </div>
+
+        <div class="content-section">
+            <h2>Histórico de Consultas</h2>
+            {% if consultas and consultas|length > 0 %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Médico</th>
+                        <th>Unidade</th>
+                        <th>Estado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in consultas %}
+                    <tr>
+                        <td>{{ c.id_consulta }}</td>
+                        <td>{{ c.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ c.hora_consulta }}</td>
+                        <td>{{ c.id_medico.id_utilizador.nome }}</td>
+                        <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
+                        <td><span class="badge {{ c.estado|lower }}">{{ c.estado|capfirst }}</span></td>
+                        <td>
+                            {% if c.estado|lower == 'agendada' %}
+                                {% if c.paciente_aceitou %}
+                                    <span style="color:#28a745; font-weight:bold">✅ Já aceitaste</span>
+                                    <br><small style="color:#666">Aguardando médico...</small>
+                                {% else %}
+                                    <a href="{% url 'paciente_confirmar_consulta' c.id_consulta %}" class="btn btn-success btn-sm" onclick="return confirm('Deseja aceitar esta consulta?')">✅ Aceitar</a>
+                                    <a href="{% url 'paciente_recusar_consulta' c.id_consulta %}" class="btn btn-danger btn-sm" onclick="return confirm('Deseja recusar esta consulta?')">❌ Recusar</a>
+                                {% endif %}
+                            {% elif c.estado|lower == 'confirmada' %}
+                                {% if c.can_cancel_24h %}
+                                    <a href="{% url 'paciente_cancelar_consulta' c.id_consulta %}" class="btn btn-danger btn-sm" onclick="return confirm('Tem a certeza que deseja cancelar esta consulta?')">Cancelar</a>
+                                {% else %}
+                                    <span style="color:#999">-</span>
+                                {% endif %}
+                            {% elif c.estado|lower == 'cancelada' %}
+                                <span style="color:#999">-</span>
+                            {% else %}
+                                <span style="color:#999">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #666; padding: 20px;">Ainda não tens consultas registadas.</p>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>

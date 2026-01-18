@@ -1,0 +1,41 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MediPulse - Médico{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{% block header_title %}👨‍⚕️ Painel Médico{% endblock %}</h1>
+            <div class="user-info">
+                <span>Dr(a). {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="nav-menu">
+            <a href="{% url 'medico_dashboard' %}" {% block nav_dashboard %}{% endblock %}>📊 Dashboard</a>
+            <a href="{% url 'medico_agenda' %}" {% block nav_agenda %}{% endblock %}>📅 Agenda</a>
+            <a href="{% url 'medico_disponibilidade' %}" {% block nav_disponibilidade %}{% endblock %}>🕐 Disponibilidade</a>
+            <a href="{% url 'medico_indisponibilidade' %}" {% block nav_indisponibilidade %}{% endblock %}>🚫 Indisponibilidade</a>
+            <a href="{% url 'profile_view' %}" {% block nav_perfil %}{% endblock %}>👤 Perfil</a>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

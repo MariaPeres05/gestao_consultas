@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes da Receita - MediPulse</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="patient-body">
+    <div class="container">
+        <div class="header">
+            <div class="user-info">
+                <span class="user-name">👤 {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-link">Sair</a>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="{% url 'listar_consultas' %}">🏥 Consultas</a>
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar</a>
+            <a href="{% url 'patient_receitas' %}" class="active">💊 Receitas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </nav>
+
+        <div class="content-section">
+            <div class="section-header">
+                <h2>💊 Detalhes da Receita</h2>
+                <a href="{% url 'patient_receitas' %}" class="btn btn-secondary">
+                    ← Voltar às Receitas
+                </a>
+            </div>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="prescription-detail-card">
+                <div class="prescription-main">
+                    <div class="prescription-icon-large">💊</div>
+                    <div class="prescription-title">
+                        <h3>{{ receita.medicamento }}</h3>
+                        <p class="prescription-id">Receita #{{ receita.id_receita }}</p>
+                    </div>
+                </div>
+
+                <div class="prescription-section">
+                    <h4>📋 Informações da Prescrição</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Data de Prescrição:</span>
+                            <span class="info-value">{{ receita.data_prescricao|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Dosagem/Posologia:</span>
+                            <span class="info-value">{{ receita.dosagem }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if receita.instrucoes %}
+                        <div class="instructions-box">
+                            <h5>📝 Instruções de Uso:</h5>
+                            <p>{{ receita.instrucoes }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="prescription-section">
+                    <h4>👨‍⚕️ Informações do Médico</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Médico:</span>
+                            <span class="info-value">Dr. {{ receita.id_consulta.id_medico.id_utilizador.nome }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Especialidade:</span>
+                            <span class="info-value">{{ receita.id_consulta.id_medico.id_especialidade.nome_especialidade }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">N° Ordem:</span>
+                            <span class="info-value">{{ receita.id_consulta.id_medico.n_ordem_medico }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prescription-section">
+                    <h4>🏥 Informações da Consulta</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Data da Consulta:</span>
+                            <span class="info-value">{{ receita.id_consulta.data_consulta|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Hora:</span>
+                            <span class="info-value">{{ receita.id_consulta.hora_consulta|time:"H:i" }}</span>
+                        </div>
+                        {% if receita.id_consulta.motivo %}
+                            <div class="info-item">
+                                <span class="info-label">Motivo da Consulta:</span>
+                                <span class="info-value">{{ receita.id_consulta.motivo }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="prescription-actions">
+                    <button class="btn btn-primary" onclick="window.print()">
+                        🖨️ Imprimir Receita
+                    </button>
+                    <a href="{% url 'patient_receitas' %}" class="btn btn-secondary">
+                        ← Voltar
+                    </a>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <p>⚠️ <strong>Importante:</strong> Esta receita é apenas para fins informativos. Para adquirir medicamentos, deverá apresentar a receita original emitida pelo médico ou a receita eletrónica correspondente na farmácia.</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .prescription-detail-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .prescription-main {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid #f1f3f5;
+            margin-bottom: 2rem;
+        }
+
+        .prescription-icon-large {
+            font-size: 4rem;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            flex-shrink: 0;
+        }
+
+        .prescription-title h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-dark);
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .prescription-id {
+            margin: 0;
+            color: #6c757d;
+            font-size: 1rem;
+        }
+
+        .prescription-section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .prescription-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .prescription-section h4 {
+            color: var(--text-dark);
+            margin: 0 0 1.5rem 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .info-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: var(--text-dark);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .instructions-box {
+            background: #f8f9fa;
+            border-left: 4px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+
+        .instructions-box h5 {
+            margin: 0 0 1rem 0;
+            color: var(--text-dark);
+            font-size: 1.1rem;
+        }
+
+        .instructions-box p {
+            margin: 0;
+            color: #495057;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .prescription-actions {
+            display: flex;
+            gap: 1rem;
+            padding-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+        }
+
+        .warning-box p {
+            margin: 0;
+            color: #856404;
+        }
+
+        @media print {
+            .header, .nav-menu, .section-header, .prescription-actions, .warning-box {
+                display: none !important;
+            }
+
+            .prescription-detail-card {
+                box-shadow: none;
+                border: 1px solid #000;
+            }
+
+            body {
+                background: white;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .prescription-main {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .prescription-title h3 {
+                font-size: 1.5rem;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>
