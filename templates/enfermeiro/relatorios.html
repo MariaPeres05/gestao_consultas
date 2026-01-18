@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios - Enfermeiro - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Relatórios e Estatísticas</h1>
+            <a href="{% url 'logout' %}" class="btn-danger">Sair</a>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'enfermeiro_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'enfermeiro_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'enfermeiro_pacientes' %}">👥 Pacientes</a>
+            <a href="{% url 'enfermeiro_relatorios' %}" class="active">📈 Relatórios</a>
+        </div>
+
+        <div class="content">
+            <form method="get" class="filter-box">
+                <div class="filter-form">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #666;">Data Início</label>
+                        <input type="date" name="data_inicio" value="{{ data_inicio|date:'Y-m-d' }}">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #666;">Data Fim</label>
+                        <input type="date" name="data_fim" value="{{ data_fim|date:'Y-m-d' }}">
+                    </div>
+                    <button type="submit">🔍 Filtrar</button>
+                </div>
+            </form>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total de Consultas</h3>
+                    <div class="number">{{ total_consultas }}</div>
+                </div>
+                <div class="stat-card variant-pink">
+                    <h3>Receitas Emitidas</h3>
+                    <div class="number">{{ total_receitas }}</div>
+                </div>
+            </div>
+
+            <h3 class="section-title">📊 Consultas por Estado</h3>
+            {% if consultas_por_estado %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estado</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in consultas_por_estado %}
+                            <tr>
+                                <td>{{ item.estado }}</td>
+                                <td>{{ item.total }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">Nenhum dado disponível</div>
+            {% endif %}
+
+            <h3 class="section-title">👨‍⚕️ Top 10 Médicos (por consultas)</h3>
+            {% if consultas_por_medico %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Médico</th>
+                            <th>Consultas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in consultas_por_medico %}
+                            <tr>
+                                <td>{{ item.id_medico__id_utilizador__nome }}</td>
+                                <td>{{ item.total }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">Nenhum dado disponível</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

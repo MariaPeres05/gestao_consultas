@@ -21,45 +21,30 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.dateparse import parse_time
+from .decorators import role_required
 
 
 @csrf_exempt
 def login_view(request):
-    if request.method == "POST":
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            user = authenticate(
-                request,
-                email=form.cleaned_data["email"],
-                password=form.cleaned_data["password"],
-            )
-            if user:
-                login(request, user)
-                # aplicar "Lembrar-me": prolongar sessão se pedido
-                try:
-                    remember = form.cleaned_data.get("remember_me")
-                except Exception:
-                    remember = False
-                if remember:
-                    # 30 dias
-                    request.session.set_expiry(30 * 24 * 3600)
-                else:
-                    # expira ao fechar o browser
-                    request.session.set_expiry(0)
-                # Redireciona pacientes para a área do paciente, outros para o dashboard
-                try:
-                    role = getattr(user, "role", None)
-                except Exception:
-                    role = None
-
-                if role == Utilizador.ROLE_PACIENTE:
-                    return redirect("patient_home")
-                return redirect("dashboard")
-            messages.error(request, "Credenciais incorretas.")
-    else:
-        form = LoginForm()
-
-    return render(request, "core/login.html", {"form": form})
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        user = authenticate(request, email=email, password=password)
+        if user:
+            login(request, user)
+            # Redirect based on user role
+            if user.role == 'medico':
+                return redirect('medico_dashboard')
+            elif user.role == 'paciente':
+                return redirect('patient_home')
+            elif user.role == 'admin':
+                return redirect('admin_dashboard')
+            elif user.role == 'enfermeiro':
+                return redirect('enfermeiro_dashboard')
+            return redirect('home')
+        else:
+            messages.error(request, "Email ou password incorretos.")
+    return render(request, 'core/login.html')
 
 
 def logout_view(request):
@@ -107,7 +92,11 @@ def patient_home(request):
         try:
             paciente_obj = Paciente.objects.filter(id_utilizador=user).first()
             if paciente_obj:
-                consultas_count = Consulta.objects.filter(id_paciente=paciente_obj).count()
+                # Count only confirmed consultas (accepted by both parties) that are not canceled
+                consultas_count = Consulta.objects.filter(
+                    id_paciente=paciente_obj,
+                    estado='confirmada'
+                ).count()
                 # faturas ligam-se a consultas; contamos todas as faturas associadas às consultas do paciente
                 faturas_count = Fatura.objects.filter(id_consulta__id_paciente=paciente_obj).count()
         except Exception:
@@ -142,9 +131,16 @@ def agendar_consulta(request):
 
     if request.method == "POST":
         disp_id = request.POST.get("disponibilidade_id")
+        hora_consulta_str = request.POST.get("hora_consulta")
+        
         if not disp_id:
             messages.error(request, "Escolha uma disponibilidade para marcar.")
             return redirect("marcar_consulta")
+        
+        if not hora_consulta_str:
+            messages.error(request, "Selecione um horário para a consulta.")
+            return redirect("marcar_consulta")
+        
         # Bloquear a disponibilidade para evitar race conditions
         from datetime import datetime, timedelta
 
@@ -157,7 +153,17 @@ def agendar_consulta(request):
                     messages.error(request, "A disponibilidade já não está disponível.")
                     return redirect("marcar_consulta")
 
-                hora_consulta = disponibilidade.hora_inicio
+                # Parse the selected time
+                try:
+                    hora_consulta = datetime.strptime(hora_consulta_str, "%H:%M").time()
+                except ValueError:
+                    messages.error(request, "Horário inválido.")
+                    return redirect("marcar_consulta")
+                
+                # Validate the time is within disponibilidade range
+                if hora_consulta < disponibilidade.hora_inicio or (disponibilidade.hora_fim and hora_consulta >= disponibilidade.hora_fim):
+                    messages.error(request, "Horário fora do intervalo de disponibilidade.")
+                    return redirect("marcar_consulta")
 
                 # impedir dupla marcação no mesmo disponibilidade+hora
                 if Consulta.objects.filter(id_disponibilidade=disponibilidade, hora_consulta=hora_consulta).exists():
@@ -170,7 +176,9 @@ def agendar_consulta(request):
                     id_disponibilidade=disponibilidade,
                     data_consulta=disponibilidade.data,
                     hora_consulta=hora_consulta,
-                    estado="marcada",
+                    estado="agendada",  # Aguarda confirmação do médico
+                    medico_aceitou=False,  # Médico precisa aceitar
+                    paciente_aceitou=True  # Paciente já aceita ao marcar
                 )
 
                 # calcular número total de slots possíveis para esta disponibilidade
@@ -233,6 +241,42 @@ def agendar_consulta(request):
 
     # apenas slots que não estejam marcados
     disponibilidades = disponibilidades.filter(~Q(status_slot__iexact="booked")).order_by("data", "hora_inicio")[:200]
+    
+    # Calculate available time slots for each disponibilidade
+    from datetime import datetime, timedelta
+    for disp in disponibilidades:
+        time_slots = []
+        if disp.hora_fim:
+            # Generate slots every 30 minutes (or use duracao_slot if available)
+            duracao = getattr(disp, 'duracao_slot', 30) or 30
+            start_dt = datetime.combine(disp.data, disp.hora_inicio)
+            end_dt = datetime.combine(disp.data, disp.hora_fim)
+            
+            current_time = start_dt
+            while current_time < end_dt:
+                slot_time = current_time.time()
+                # Check if this slot is already booked
+                is_booked = Consulta.objects.filter(
+                    id_disponibilidade=disp,
+                    hora_consulta=slot_time
+                ).exists()
+                
+                time_slots.append({
+                    'time': slot_time.strftime('%H:%M'),
+                    'available': not is_booked
+                })
+                current_time += timedelta(minutes=duracao)
+        else:
+            # If no end time, just show the start time
+            time_slots.append({
+                'time': disp.hora_inicio.strftime('%H:%M'),
+                'available': not Consulta.objects.filter(
+                    id_disponibilidade=disp,
+                    hora_consulta=disp.hora_inicio
+                ).exists()
+            })
+        
+        disp.time_slots = time_slots
 
     context = {
         "especialidades": especialidades,
@@ -345,9 +389,104 @@ def listar_consultas(request):
         .select_related("id_medico__id_utilizador", "id_disponibilidade__id_unidade")
         .order_by("-data_consulta", "hora_consulta")
     )
+    
+    # Adicionar propriedade can_cancel_24h a cada consulta
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    for consulta in consultas:
+        consulta_datetime = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
+        if timezone.is_aware(consulta_datetime):
+            consulta_datetime = timezone.make_naive(consulta_datetime)
+        consulta_datetime = timezone.make_aware(consulta_datetime)
+        tempo_restante = consulta_datetime - timezone.now()
+        consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
 
     context = {"consultas": consultas, "paciente": paciente}
     return render(request, "core/patient_consultas.html", context)
+
+
+@login_required
+@role_required('paciente')
+def paciente_confirmar_consulta(request, consulta_id):
+    """Paciente confirma uma consulta agendada"""
+    paciente = Paciente.objects.get(id_utilizador=request.user)
+    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_paciente=paciente)
+    
+    if consulta.estado == 'agendada':
+        consulta.paciente_aceitou = True
+        
+        # Se o médico já aceitou, confirma a consulta
+        if consulta.medico_aceitou:
+            consulta.estado = 'confirmada'
+            messages.success(request, "Consulta confirmada com sucesso!")
+        else:
+            # Senão, mantém como agendada esperando aceitação do médico
+            messages.success(request, "Aceitaste a consulta. Aguardando aceitação do médico.")
+        
+        consulta.save()
+    else:
+        messages.warning(request, "Esta consulta não pode ser confirmada.")
+    
+    return redirect('listar_consultas')
+
+
+@login_required
+@role_required('paciente')
+def paciente_recusar_consulta(request, consulta_id):
+    """Paciente recusa uma consulta agendada"""
+    paciente = Paciente.objects.get(id_utilizador=request.user)
+    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_paciente=paciente)
+    
+    if consulta.estado == 'agendada':
+        consulta.estado = 'cancelada'
+        if not consulta.motivo:
+            consulta.motivo = "Recusada pelo paciente"
+        else:
+            consulta.motivo += " (Recusada pelo paciente)"
+        consulta.save()
+        messages.success(request, "Consulta recusada.")
+    else:
+        messages.warning(request, "Esta consulta não pode ser recusada.")
+    
+    return redirect('listar_consultas')
+
+
+@login_required
+@role_required('paciente')
+def paciente_cancelar_consulta(request, consulta_id):
+    """Paciente cancela uma consulta confirmada (até 24h antes)"""
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    paciente = Paciente.objects.get(id_utilizador=request.user)
+    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_paciente=paciente)
+    
+    # Combinar data e hora da consulta
+    consulta_datetime = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
+    if timezone.is_aware(consulta_datetime):
+        consulta_datetime = timezone.make_naive(consulta_datetime)
+    consulta_datetime = timezone.make_aware(consulta_datetime)
+    
+    # Verificar se faltam mais de 24 horas
+    tempo_restante = consulta_datetime - timezone.now()
+    
+    if tempo_restante < timedelta(hours=24):
+        messages.error(request, "Não é possível cancelar consultas com menos de 24 horas de antecedência.")
+        return redirect('listar_consultas')
+    
+    if consulta.estado in ['agendada', 'confirmada']:
+        consulta.estado = 'cancelada'
+        if not consulta.motivo:
+            consulta.motivo = "Cancelada pelo paciente"
+        else:
+            consulta.motivo += " (Cancelada pelo paciente)"
+        consulta.save()
+        messages.success(request, "Consulta cancelada com sucesso.")
+    else:
+        messages.warning(request, "Esta consulta não pode ser cancelada.")
+    
+    return redirect('listar_consultas')
 
 
 def listar_faturas(request):
@@ -397,6 +536,135 @@ def listar_faturas(request):
 
     context = {"faturas": faturas, "paciente": paciente}
     return render(request, "core/patient_faturas.html", context)
+
+
+@login_required
+def patient_perfil_editar(request):
+    """Permite ao paciente editar o seu perfil."""
+    if request.user.role != 'paciente':
+        messages.error(request, "Acesso negado.")
+        return redirect('home')
+    
+    user = request.user
+    
+    if request.method == 'POST':
+        # Atualizar dados do utilizador
+        nome = request.POST.get('nome', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        password = request.POST.get('password', '').strip()
+        password_confirm = request.POST.get('password_confirm', '').strip()
+        
+        if nome:
+            user.nome = nome
+        if telefone:
+            user.telefone = telefone
+        
+        # Se forneceu nova password, valida e atualiza
+        if password:
+            if password == password_confirm:
+                if len(password) >= 6:
+                    user.set_password(password)
+                    messages.success(request, "Perfil atualizado com sucesso! Por favor, faça login novamente com a nova password.")
+                    user.save()
+                    logout(request)
+                    return redirect('login')
+                else:
+                    messages.error(request, "A password deve ter pelo menos 6 caracteres.")
+                    return render(request, 'core/patient_perfil.html', {'user': user})
+            else:
+                messages.error(request, "As passwords não coincidem.")
+                return render(request, 'core/patient_perfil.html', {'user': user})
+        
+        user.save()
+        messages.success(request, "Perfil atualizado com sucesso!")
+        return redirect('patient_perfil_editar')
+    
+    context = {'user': user}
+    return render(request, 'core/patient_perfil.html', context)
+
+
+@login_required
+def reagendar_consulta(request, consulta_id):
+    """Permite reagendar uma consulta existente para uma nova disponibilidade."""
+    if request.user.role != 'paciente':
+        messages.error(request, "Acesso negado.")
+        return redirect('home')
+    
+    paciente = Paciente.objects.filter(id_utilizador=request.user).first()
+    if not paciente:
+        messages.error(request, "Não foi possível encontrar o registo de paciente associado ao utilizador.")
+        return redirect("patient_home")
+    
+    # Buscar consulta original
+    try:
+        consulta = Consulta.objects.select_related(
+            'id_medico__id_utilizador',
+            'id_medico__id_especialidade',
+            'id_disponibilidade__id_unidade'
+        ).get(id_consulta=consulta_id, id_paciente=paciente)
+    except Consulta.DoesNotExist:
+        messages.error(request, "Consulta não encontrada.")
+        return redirect('listar_consultas')
+    
+    # Só permitir reagendar se estiver em estado marcada ou agendada
+    if consulta.estado.lower() not in ('marcada', 'agendada'):
+        messages.error(request, "Esta consulta não pode ser reagendada.")
+        return redirect('listar_consultas')
+    
+    if request.method == 'POST':
+        nova_disp_id = request.POST.get('nova_disponibilidade')
+        if nova_disp_id:
+            try:
+                with transaction.atomic():
+                    # Buscar nova disponibilidade
+                    nova_disp = Disponibilidade.objects.select_for_update().get(
+                        id_disponibilidade=nova_disp_id,
+                        status_slot__in=['available', 'disponivel']
+                    )
+                    
+                    # Libertar disponibilidade antiga (se existir)
+                    if consulta.id_disponibilidade:
+                        disp_antiga = consulta.id_disponibilidade
+                        disp_antiga.status_slot = 'available'
+                        disp_antiga.save()
+                    
+                    # Atualizar consulta
+                    consulta.id_disponibilidade = nova_disp
+                    consulta.data_consulta = nova_disp.data
+                    consulta.hora_consulta = nova_disp.hora_inicio
+                    consulta.id_medico = nova_disp.id_medico
+                    consulta.estado = 'agendada'
+                    consulta.save()
+                    
+                    # Marcar nova disponibilidade como ocupada
+                    nova_disp.status_slot = 'booked'
+                    nova_disp.save()
+                    
+                    messages.success(request, "Consulta reagendada com sucesso!")
+                    return redirect('listar_consultas')
+                    
+            except Disponibilidade.DoesNotExist:
+                messages.error(request, "Disponibilidade não encontrada ou já ocupada.")
+            except Exception as e:
+                messages.error(request, f"Erro ao reagendar: {str(e)}")
+        else:
+            messages.error(request, "Por favor, selecione uma nova data/hora.")
+    
+    # Buscar disponibilidades do mesmo médico (ou da mesma especialidade)
+    disponibilidades = Disponibilidade.objects.filter(
+        id_medico=consulta.id_medico,
+        status_slot__in=['available', 'disponivel']
+    ).filter(
+        Q(data__gt=consulta.data_consulta) | 
+        Q(data=consulta.data_consulta, hora_inicio__gt=consulta.hora_consulta)
+    ).select_related('id_unidade').order_by('data', 'hora_inicio')[:50]
+    
+    context = {
+        'consulta': consulta,
+        'disponibilidades': disponibilidades,
+        'paciente': paciente
+    }
+    return render(request, 'core/patient_reagendar.html', context)
 
 
 def home(request):

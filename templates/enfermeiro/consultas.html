@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultas - Enfermeiro - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Gestão de Consultas</h1>
+            <a href="{% url 'logout' %}" class="btn-danger">Sair</a>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'enfermeiro_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'enfermeiro_consultas' %}" class="active">📅 Consultas</a>
+            <a href="{% url 'enfermeiro_pacientes' %}">👥 Pacientes</a>
+            <a href="{% url 'enfermeiro_relatorios' %}">📈 Relatórios</a>
+        </div>
+
+        <div class="content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Lista de Consultas</h2>
+                <a href="{% url 'enfermeiro_consulta_criar' %}" class="btn btn-primary">➕ Marcar Consulta</a>
+            </div>
+            
+            <form method="get" class="filter-box">
+                <div class="filter-form">
+                    <div>
+                        <label>Estado</label>
+                        <select name="estado" onchange="this.form.submit()">
+                            <option value="">Todos os estados</option>
+                            <option value="agendada" {% if estado_filter == 'agendada' %}selected{% endif %}>Agendada</option>
+                            <option value="confirmada" {% if estado_filter == 'confirmada' %}selected{% endif %}>Confirmada</option>
+                            <option value="realizada" {% if estado_filter == 'realizada' %}selected{% endif %}>Realizada</option>
+                            <option value="cancelada" {% if estado_filter == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Data</label>
+                        <input type="date" name="data" value="{{ data_filter }}">
+                    </div>
+                    <div>
+                        <label>Médico</label>
+                        <select name="medico">
+                            <option value="">Todos os médicos</option>
+                            {% for medico in medicos %}
+                            <option value="{{ medico.id_medico }}" {% if medico_filter == medico.id_medico|stringformat:"s" %}selected{% endif %}>
+                                Dr(a). {{ medico.id_utilizador.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit">Filtrar</button>
+                </div>
+            </form>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Paciente</th>
+                        <th>Médico</th>
+                        <th>Especialidade</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consulta in consultas %}
+                    <tr>
+                        <td>{{ consulta.id_consulta }}</td>
+                        <td>{{ consulta.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ consulta.hora_consulta }}</td>
+                        <td>{{ consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>Dr(a). {{ consulta.id_medico.id_utilizador.nome }}</td>
+                        <td>{{ consulta.id_medico.id_especialidade.nome_especialidade }}</td>
+                        <td><span class="badge {{ consulta.estado|lower }}">{{ consulta.estado|capfirst }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align:center;padding:40px;color:#999;">Nenhuma consulta encontrada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

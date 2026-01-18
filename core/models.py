@@ -5,10 +5,21 @@ from django.utils import timezone
 
 # ---------- Custom user manager (simples) ----------
 class UtilizadorManager(BaseUserManager):
+    def _generate_n_utente(self):
+        """Generate unique numero de utente (10 digits)"""
+        import random
+        while True:
+            n_utente = ''.join([str(random.randint(0, 9)) for _ in range(10)])
+            if not self.filter(n_utente=n_utente).exists():
+                return n_utente
+    
     def create_user(self, email, nome, senha=None, **extra_fields):
         if not email:
             raise ValueError("O utilizador deve ter email")
 
+        # Remove n_utente if provided (it will be auto-generated)
+        extra_fields.pop('n_utente', None)
+        
         user = self.model(
             email=self.normalize_email(email),
             nome=nome,
@@ -17,15 +28,20 @@ class UtilizadorManager(BaseUserManager):
         # Garantir que data_registo está preenchida
         if not getattr(user, 'data_registo', None):
             user.data_registo = timezone.now()
+        
+        # Auto-generate n_utente
+        user.n_utente = self._generate_n_utente()
 
         user.set_password(senha)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, email, nome, senha=None, **extra_fields):
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
+        # Remove is_staff if present (it's a property based on role)
+        extra_fields.pop("is_staff", None)
+        # Set role to admin which makes is_staff=True automatically
         extra_fields.setdefault("role", "admin")
+        extra_fields.setdefault("is_superuser", True)
 
         return self.create_user(email, nome, senha, **extra_fields)
 
@@ -36,7 +52,7 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     telefone = models.CharField(max_length=20, null=True, blank=True)
     n_utente = models.CharField(max_length=20, null=True, blank=True)
-    senha = models.CharField(max_length=255)
+    # Note: password field is inherited from AbstractBaseUser
     # explicit role choices
     ROLE_PACIENTE = "paciente"
     ROLE_MEDICO = "medico"
@@ -54,6 +70,12 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
     data_registo = models.DateTimeField()
     ativo = models.BooleanField(default=True)
     foto_perfil = models.TextField(null=True, blank=True)
+    
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, null=True, blank=True)
+    reset_token = models.CharField(max_length=100, null=True, blank=True)
+    reset_token_expires = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["nome"]
@@ -88,15 +110,8 @@ class Utilizador(AbstractBaseUser, PermissionsMixin):
     def is_admin(self):
         return self.role == self.ROLE_ADMIN
 
-
-    # override set_password to use bcrypt-compatible crypt()
-    def set_password(self, raw_password):
-        from django.contrib.auth.hashers import make_password
-        self.senha = make_password(raw_password)
-
-    def check_password(self, raw_password):
-        from django.contrib.auth.hashers import check_password
-        return check_password(raw_password, self.senha)
+    # Note: set_password and check_password are inherited from AbstractBaseUser
+    # and work correctly with the 'password' field
 
 # ---------- Regiao ----------
 class Regiao(models.Model):
@@ -198,12 +213,32 @@ class Disponibilidade(models.Model):
 class Consulta(models.Model):
     id_consulta = models.AutoField(primary_key=True, db_column='id_consulta')
     id_paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, db_column='id_paciente', related_name='consultas')
-    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', related_name='consultas')
-    id_disponibilidade = models.ForeignKey(Disponibilidade, on_delete=models.CASCADE, db_column='id_disponibilidade', related_name='consultas')
+    id_medico = models.ForeignKey(Medico, on_delete=models.CASCADE, db_column='id_medico', blank=True, null=True, related_name='consultas')
+    id_disponibilidade = models.ForeignKey(Disponibilidade, on_delete=models.CASCADE, db_column='id_disponibilidade', blank=True, null=True, related_name='consultas')
     data_consulta = models.DateField(db_column='data_consulta')
     hora_consulta = models.TimeField(db_column='hora_consulta')
     estado = models.CharField(max_length=50, db_column='estado')
     motivo = models.CharField(max_length=255, blank=True, null=True, db_column='motivo')
+    medico_aceitou = models.BooleanField(default=False, db_column='medico_aceitou')
+    paciente_aceitou = models.BooleanField(default=False, db_column='paciente_aceitou')
+    
+    # RF-22: Clinical notes and observations
+    notas_clinicas = models.TextField(blank=True, null=True, db_column='notas_clinicas', help_text='Resumo clínico da consulta')
+    observacoes = models.TextField(blank=True, null=True, db_column='observacoes', help_text='Observações adicionais')
+    
+    # RF-21: Check-in workflow
+    paciente_presente = models.BooleanField(default=False, db_column='paciente_presente', help_text='Check-in realizado')
+    hora_checkin = models.DateTimeField(blank=True, null=True, db_column='hora_checkin')
+    hora_inicio_real = models.DateTimeField(blank=True, null=True, db_column='hora_inicio_real', help_text='Hora real de início')
+    hora_fim_real = models.DateTimeField(blank=True, null=True, db_column='hora_fim_real', help_text='Hora real de término')
+    
+    # RF-33: Audit trail
+    criado_por = models.ForeignKey('Utilizador', on_delete=models.SET_NULL, null=True, blank=True, 
+                                    related_name='consultas_criadas', db_column='criado_por')
+    criado_em = models.DateTimeField(auto_now_add=True, null=True, blank=True, db_column='criado_em')
+    modificado_por = models.ForeignKey('Utilizador', on_delete=models.SET_NULL, null=True, blank=True,
+                                        related_name='consultas_modificadas', db_column='modificado_por')
+    modificado_em = models.DateTimeField(auto_now=True, null=True, blank=True, db_column='modificado_em')
 
     class Meta:
         db_table = '"CONSULTAS"'

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Confirmada</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4a90e2;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+        }
+        .info-box {
+            background-color: white;
+            padding: 15px;
+            margin: 20px 0;
+            border-left: 4px solid #4a90e2;
+        }
+        .info-row {
+            margin: 10px 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✓ Consulta Confirmada</h1>
+    </div>
+    <div class="content">
+        <p>Olá <strong>{{ consulta.paciente.get_full_name }}</strong>,</p>
+        
+        <p>A sua consulta foi confirmada com sucesso!</p>
+        
+        <div class="info-box">
+            <div class="info-row">
+                <span class="label">Data e Hora:</span> 
+                {{ consulta.data|date:"d/m/Y" }} às {{ consulta.hora_inicio|time:"H:i" }}
+            </div>
+            <div class="info-row">
+                <span class="label">Médico:</span> 
+                Dr(a). {{ consulta.medico.get_full_name }}
+            </div>
+            <div class="info-row">
+                <span class="label">Especialidade:</span> 
+                {{ consulta.medico.especialidade.nome }}
+            </div>
+            <div class="info-row">
+                <span class="label">Unidade:</span> 
+                {{ consulta.medico.unidade_saude.nome }}
+            </div>
+            <div class="info-row">
+                <span class="label">Endereço:</span> 
+                {{ consulta.medico.unidade_saude.endereco }}
+            </div>
+        </div>
+        
+        <p><strong>Importante:</strong></p>
+        <ul>
+            <li>Por favor, chegue 15 minutos antes do horário marcado</li>
+            <li>Traga um documento de identificação válido</li>
+            <li>Se precisar cancelar, faça-o com antecedência mínima de 24 horas</li>
+        </ul>
+        
+        <p>Se tiver alguma dúvida, entre em contato conosco.</p>
+        
+        <p>Atenciosamente,<br>
+        <strong>Equipa MediPulse</strong></p>
+    </div>
+    <div class="footer">
+        <p>Este é um email automático, por favor não responda.</p>
+        <p>&copy; 2026 MediPulse - Sistema de Gestão de Consultas</p>
+    </div>
+</body>
+</html>

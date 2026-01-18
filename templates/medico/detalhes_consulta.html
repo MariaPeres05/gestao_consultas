@@ -1,0 +1,123 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes da Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="medico-header">
+        <div class="container">
+            <h1>📋 Detalhes da Consulta</h1>
+            <div class="nav-links">
+                <a href="{% url 'medico_dashboard' %}">Dashboard</a>
+                <a href="{% url 'medico_agenda' %}">Agenda</a>
+                <a href="{% url 'home' %}">Voltar</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="content">
+            <h2>👤 Informações do Paciente</h2>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Nome Completo</label>
+                    <div class="value">{{ paciente.id_utilizador.nome }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Email</label>
+                    <div class="value">{{ paciente.id_utilizador.email }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Telefone</label>
+                    <div class="value">{{ paciente.id_utilizador.telefone|default:"Não informado" }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Data de Nascimento</label>
+                    <div class="value">{{ paciente.data_nascimento|date:"d/m/Y"|default:"Não informada" }}</div>
+                </div>
+            </div>
+
+            {% if paciente.alergias %}
+                <div class="alert danger">
+                    <strong>⚠️ ALERGIAS:</strong> {{ paciente.alergias }}
+                </div>
+            {% endif %}
+
+            {% if paciente.observacoes %}
+                <div class="alert info">
+                    <strong>📝 Observações:</strong> {{ paciente.observacoes }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="content mt-20">
+            <h2>🗓️ Detalhes da Consulta</h2>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Data e Hora</label>
+                    <div class="value">{{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta|time:"H:i" }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Estado</label>
+                    <div class="value">
+                        <span class="badge badge-success">{{ consulta.get_estado_display }}</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <label>Unidade de Saúde</label>
+                    <div class="value">{{ consulta.unidade_saude.nome }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Preço</label>
+                    <div class="value">{{ consulta.preco }}€</div>
+                </div>
+            </div>
+
+            {% if consulta.motivo_consulta %}
+                <div class="alert warning">
+                    <strong>💬 Motivo da Consulta:</strong><br>
+                    {{ consulta.motivo_consulta }}
+                </div>
+            {% endif %}
+
+            {% if consulta.notas_medicas %}
+                <div class="alert info" style="margin-top: 20px;">
+                    <strong>📝 Notas Médicas Anteriores:</strong><br>
+                    {{ consulta.notas_medicas }}
+                </div>
+            {% endif %}
+
+            <div style="margin-top: 20px;">
+                {% if consulta.estado == 'agendada' %}
+                    <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">✅ Confirmar Consulta</a>
+                    <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">❌ Recusar</a>
+                {% elif consulta.estado == 'confirmada' %}
+                    <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-primary">📝 Registar Consulta</a>
+                {% endif %}
+                <a href="{% url 'medico_dashboard' %}" class="btn btn-secondary">← Voltar</a>
+            </div>
+        </div>
+
+        {% if historico %}
+            <div class="content mt-20">
+                <h2>📜 Histórico de Consultas com este Paciente</h2>
+                {% for cons in historico %}
+                    <div class="historico-item">
+                        <h4>{{ cons.data_consulta|date:"d/m/Y" }}</h4>
+                        <p><strong>Motivo:</strong> {{ cons.motivo_consulta|truncatewords:20 }}</p>
+                        {% if cons.notas_medicas %}
+                            <p><strong>Notas:</strong> {{ cons.notas_medicas|truncatewords:30 }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

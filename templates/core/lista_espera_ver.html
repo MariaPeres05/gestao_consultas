@@ -1,0 +1,130 @@
+{% extends "base_patient.html" %}
+
+{% block title %}Minhas Inscrições - Lista de Espera{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Minhas Inscrições - Lista de Espera</h1>
+                <a href="{% url 'lista_espera_inscrever' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nova Inscrição
+                </a>
+            </div>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if listas %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Especialidade</th>
+                                <th>Unidade</th>
+                                <th>Médico</th>
+                                <th>Data Inscrição</th>
+                                <th>Prioridade</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lista in listas %}
+                                <tr>
+                                    <td><strong>{{ lista.id_especialidade.nome_especialidade }}</strong></td>
+                                    <td>
+                                        {% if lista.id_unidade %}
+                                            {{ lista.id_unidade.nome_unidade }}
+                                        {% else %}
+                                            <span class="text-muted">Qualquer</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lista.id_medico %}
+                                            Dr. {{ lista.id_medico.id_utilizador.nome }}
+                                        {% else %}
+                                            <span class="text-muted">Qualquer</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ lista.data_inscricao|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if lista.prioridade == 'urgente' %}
+                                            <span class="badge bg-danger">Urgente</span>
+                                        {% elif lista.prioridade == 'alta' %}
+                                            <span class="badge bg-warning">Alta</span>
+                                        {% elif lista.prioridade == 'normal' %}
+                                            <span class="badge bg-info">Normal</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Baixa</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lista.status == 'aguardando' %}
+                                            <span class="badge bg-primary">Aguardando</span>
+                                        {% elif lista.status == 'notificado' %}
+                                            <span class="badge bg-success">Notificado</span>
+                                        {% elif lista.status == 'agendado' %}
+                                            <span class="badge bg-success">Agendado</span>
+                                        {% elif lista.status == 'cancelado' %}
+                                            <span class="badge bg-secondary">Cancelado</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ lista.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lista.status == 'aguardando' %}
+                                            <a href="{% url 'lista_espera_cancelar' lista.id_lista_espera %}" 
+                                               class="btn btn-sm btn-danger"
+                                               onclick="return confirm('Tem certeza que deseja cancelar esta inscrição?')">
+                                                <i class="fas fa-times"></i> Cancelar
+                                            </a>
+                                        {% elif lista.status == 'notificado' %}
+                                            <a href="{% url 'marcar_consulta' %}" class="btn btn-sm btn-success">
+                                                <i class="fas fa-calendar-check"></i> Agendar
+                                            </a>
+                                        {% endif %}
+                                        
+                                        {% if lista.motivo %}
+                                            <button class="btn btn-sm btn-info" data-bs-toggle="tooltip" 
+                                                    title="{{ lista.motivo }}">
+                                                <i class="fas fa-info-circle"></i>
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Não tem inscrições na lista de espera.
+                    <a href="{% url 'lista_espera_inscrever' %}" class="alert-link">Clique aqui para se inscrever</a>.
+                </div>
+            {% endif %}
+
+            <div class="mt-3">
+                <a href="{% url 'patient_home' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+</script>
+{% endblock %}

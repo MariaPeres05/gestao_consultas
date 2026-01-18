@@ -1,0 +1,98 @@
+{% extends "base_patient.html" %}
+
+{% block title %}Inscrever na Lista de Espera{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-4">Inscrever na Lista de Espera</h1>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card">
+                <div class="card-body">
+                    <p class="text-muted">
+                        Não encontrou disponibilidade imediata? Inscreva-se na lista de espera e será notificado 
+                        quando houver vagas disponíveis.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Especialidade *</label>
+                            <select class="form-select" name="especialidade_id" required>
+                                <option value="">Selecione uma especialidade</option>
+                                {% for especialidade in especialidades %}
+                                    <option value="{{ especialidade.id_especialidade }}">
+                                        {{ especialidade.nome_especialidade }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Unidade de Saúde (opcional)</label>
+                            <select class="form-select" name="unidade_id">
+                                <option value="">Qualquer unidade</option>
+                                {% for unidade in unidades %}
+                                    <option value="{{ unidade.id_unidade }}">{{ unidade.nome_unidade }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Deixe em branco para qualquer unidade</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Médico Específico (opcional)</label>
+                            <select class="form-select" name="medico_id">
+                                <option value="">Qualquer médico da especialidade</option>
+                                {% for medico in medicos %}
+                                    <option value="{{ medico.id_medico }}">
+                                        Dr. {{ medico.id_utilizador.nome }}
+                                        {% if medico.id_especialidade %}
+                                            - {{ medico.id_especialidade.nome_especialidade }}
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Deixe em branco para qualquer médico</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Prioridade</label>
+                            <select class="form-select" name="prioridade">
+                                <option value="normal">Normal</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                            <small class="text-muted">A prioridade urgente só pode ser atribuída pelo administrativo</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Motivo / Observações</label>
+                            <textarea class="form-control" name="motivo" rows="3" 
+                                      placeholder="Descreva brevemente o motivo da consulta..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'lista_espera_ver' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-list"></i> Inscrever na Lista
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

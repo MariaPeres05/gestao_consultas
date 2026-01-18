@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Enfermeiro - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>👨‍⚕️ Dashboard Enfermeiro</h1>
+                <p style="color: #666; margin-top: 5px;">Bem-vindo(a), {{ enfermeiro.id_utilizador.nome }}</p>
+                <p style="color: #999; font-size: 14px;">{{ enfermeiro.id_unidade.nome_unidade }}</p>
+            </div>
+            <a href="{% url 'logout' %}" class="btn btn-danger">Sair</a>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'enfermeiro_dashboard' %}" class="active">📊 Dashboard</a>
+            <a href="{% url 'enfermeiro_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'enfermeiro_pacientes' %}">👥 Pacientes</a>
+            <a href="{% url 'enfermeiro_relatorios' %}">📈 Relatórios</a>
+            <a href="{% url 'home' %}">🏠 Home</a>
+        </div>
+
+        <div class="content">
+            <h2 style="margin-bottom: 20px; color: #667eea;">Estatísticas de Hoje</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>📅 Consultas Hoje</h3>
+                    <div class="number">{{ consultas_hoje }}</div>
+                </div>
+                <div class="stat-card variant-pink">
+                    <h3>⏰ Consultas Pendentes</h3>
+                    <div class="number">{{ consultas_pendentes }}</div>
+                </div>
+                <div class="stat-card variant-blue">
+                    <h3>👤 Pacientes esta Semana</h3>
+                    <div class="number">{{ pacientes_semana }}</div>
+                </div>
+            </div>
+
+            <h3 style="margin: 30px 0 15px; color: #667eea;">Próximas Consultas</h3>
+            
+            {% if proximas_consultas %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Paciente</th>
+                        <th>Médico</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consulta in proximas_consultas %}
+                    <tr>
+                        <td>{{ consulta.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ consulta.hora_consulta }}</td>
+                        <td>{{ consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>Dr(a). {{ consulta.id_medico.id_utilizador.nome }}</td>
+                        <td><span style="padding: 5px 10px; background: #fff3cd; border-radius: 15px; font-size: 12px;">{{ consulta.estado|capfirst }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">Sem consultas agendadas</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

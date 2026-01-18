@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verificado - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container" style="max-width: 500px; margin: 50px auto;">
+        <div class="content-section" style="text-align: center;">
+            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+            <h1>Email Verificado!</h1>
+            <p style="color: #666;">A sua conta foi ativada com sucesso.</p>
+            <p>Já pode fazer login e começar a marcar as suas consultas.</p>
+            
+            <a href="{% url 'login' %}" class="btn btn-primary" style="margin-top: 30px; display: inline-block;">Fazer Login</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Eliminar Especialidade</title>
+<style>body{font-family:Arial;background:#667eea;padding:20px}.container{max-width:600px;margin:0 auto;background:white;padding:30px;border-radius:10px;text-align:center}
+.btn{padding:12px 24px;border:none;border-radius:5px;cursor:pointer;margin:10px;text-decoration:none;display:inline-block}
+.btn-danger{background:#e74c3c;color:white}.btn-secondary{background:#6c757d;color:white}
+</style></head><body><div class="container"><h1>⚠️ Confirmar Eliminação</h1>
+<p>Tem a certeza que deseja eliminar a especialidade <strong>{{especialidade.nome_especialidade}}</strong>?</p>
+<p style="color:#e74c3c">Esta ação não pode ser revertida!</p><form method="post">{% csrf_token %}
+<button type="submit" class="btn btn-danger">🗑️ Sim, Eliminar</button>
+<a href="{% url 'admin_especialidades' %}" class="btn btn-secondary">❌ Cancelar</a></form></div></body></html>

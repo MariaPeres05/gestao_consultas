@@ -1,0 +1,53 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registar Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="medico-header">
+        <div class="container">
+            <h1>📝 Registar Consulta</h1>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="info-box">
+            <p><strong>Paciente:</strong> {{ consulta.id_paciente.id_utilizador.nome }}</p>
+            <p><strong>Data:</strong> {{ consulta.data_consulta|date:"d/m/Y" }} {{ consulta.hora_consulta }}</p>
+            <p><strong>Motivo:</strong> {{ consulta.motivo_consulta }}</p>
+        </div>
+
+        <div class="content">
+            <h2>📋 Informações da Consulta</h2>
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="diagnostico">Diagnóstico / Avaliação:</label>
+                    <textarea id="diagnostico" name="diagnostico" 
+                              placeholder="Descreva o diagnóstico ou avaliação realizada..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="notas_medicas">Notas Médicas:</label>
+                    <textarea id="notas_medicas" name="notas_medicas" required
+                              placeholder="Anamnese, exame físico, evolução, plano terapêutico..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="prescricao">Prescrição / Receita (opcional):</label>
+                    <textarea id="prescricao" name="prescricao"
+                              placeholder="Medicamentos prescritos, dosagem, duração do tratamento...&#10;&#10;Ex:&#10;- Paracetamol 500mg - 1 comprimido de 8/8h por 3 dias&#10;- Ibuprofeno 400mg - 1 comprimido de 12/12h se dor"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">💾 Registar e Finalizar Consulta</button>
+                <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-secondary">← Voltar</a>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

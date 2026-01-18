@@ -1,0 +1,196 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reagendar Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <style>
+        .patient-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .patient-header .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .patient-header h1 {
+            color: white;
+            margin: 0 0 5px 0;
+            font-size: 28px;
+        }
+        .patient-header .nav-links {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .patient-header .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+        }
+        .patient-header .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .patient-header .nav-links a.active {
+            background: rgba(255,255,255,0.3);
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            color: #1976D2;
+            margin: 0 0 10px 0;
+        }
+        .info-box p {
+            color: #555;
+            margin: 5px 0;
+        }
+        .disponibilidade-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .disponibilidade-item:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .disponibilidade-item.selected {
+            border-color: #27ae60;
+            background: #d4edda;
+        }
+        .disponibilidade-item input[type="radio"] {
+            margin-right: 10px;
+        }
+        .disponibilidade-item label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .disp-info { flex: 1; }
+        .disp-data {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 16px;
+        }
+        .disp-details {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .form-actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="patient-header">
+        <div class="container">
+            <h1>🔄 Reagendar Consulta</h1>
+            <div class="nav-links">
+                <a href="{% url 'patient_home' %}">🏠 Início</a>
+                <a href="{% url 'marcar_consulta' %}">📅 Agendar</a>
+                <a href="{% url 'listar_consultas' %}" class="active">📋 Consultas</a>
+                <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+                <a href="{% url 'logout' %}" style="margin-left: auto;">Sair</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}danger{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="content">
+            <h2>Reagendar Consulta</h2>
+            
+            <div class="info-box">
+                <h3>📋 Consulta Atual</h3>
+                <p><strong>Médico:</strong> Dr(a). {{ consulta.id_medico.id_utilizador.nome }}</p>
+                <p><strong>Especialidade:</strong> {{ consulta.id_medico.id_especialidade.nome_especialidade }}</p>
+                <p><strong>Data Atual:</strong> {{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta }}</p>
+                {% if consulta.id_disponibilidade.id_unidade %}
+                <p><strong>Local:</strong> {{ consulta.id_disponibilidade.id_unidade.nome_unidade }}</p>
+                {% endif %}
+            </div>
+
+            <h3 style="margin: 25px 0 15px; color: #333;">Selecione uma Nova Data/Hora</h3>
+            
+            {% if disponibilidades %}
+            <form method="post">
+                {% csrf_token %}
+                
+                {% for disp in disponibilidades %}
+                <div class="disponibilidade-item" onclick="selectThis(this)">
+                    <label>
+                        <input type="radio" name="nova_disponibilidade" value="{{ disp.id_disponibilidade }}" required>
+                        <div class="disp-info">
+                            <div class="disp-data">
+                                📅 {{ disp.data|date:"d/m/Y (l)" }} - ⏰ {{ disp.hora_inicio }}
+                            </div>
+                            <div class="disp-details">
+                                📍 {{ disp.id_unidade.nome_unidade }}
+                                {% if disp.id_unidade.morada_unidade %}
+                                - {{ disp.id_unidade.morada_unidade }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">✅ Confirmar Reagendamento</button>
+                    <a href="{% url 'listar_consultas' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+            {% else %}
+            <div class="no-data">
+                <p style="font-size: 18px; margin-bottom: 10px;">😔 Sem disponibilidades futuras</p>
+                <p>Não há disponibilidades futuras para este médico no momento.</p>
+                <p style="margin-top: 20px;">
+                    <a href="{% url 'listar_consultas' %}" class="btn btn-primary">Voltar às Consultas</a>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function selectThis(element) {
+            // Remove selection from all
+            document.querySelectorAll('.disponibilidade-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            // Add to clicked
+            element.classList.add('selected');
+            // Check the radio
+            element.querySelector('input[type="radio"]').checked = true;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Email - MediPulse</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center;">
+        <h1 style="color: white; margin: 0;">📧 Verificar Email</h1>
+    </div>
+    
+    <div style="background: #f9f9f9; padding: 30px; border-radius: 10px; margin-top: 20px;">
+        <p>Olá <strong>{{ user.nome }}</strong>,</p>
+        
+        <p>Obrigado por se registar no <strong>MediPulse</strong> - Sistema de Gestão de Consultas Médicas.</p>
+        
+        <p>Para ativar a sua conta e começar a marcar consultas, por favor clique no botão abaixo para verificar o seu email:</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ verification_url }}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                ✅ Verificar Email
+            </a>
+        </div>
+        
+        <p style="color: #666; font-size: 14px;">Ou copie e cole este link no seu navegador:</p>
+        <p style="background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 5px; word-break: break-all; font-size: 12px;">
+            {{ verification_url }}
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        
+        <p style="color: #999; font-size: 12px;">
+            Se não criou esta conta, pode ignorar este email.<br>
+            Este link expira em 24 horas por razões de segurança.
+        </p>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+        <p>MediPulse - Sistema de Gestão de Consultas Médicas</p>
+    </div>
+</body>
+</html>

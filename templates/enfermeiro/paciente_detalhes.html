@@ -1,0 +1,142 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Paciente - Enfermeiro</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="header">
+        <h1>👩‍⚕️ {{ enfermeiro.id_utilizador.nome }}</h1>
+        <p>Enfermeiro(a)</p>
+        <div class="nav-links">
+            <a href="{% url 'enfermeiro_dashboard' %}">Dashboard</a>
+            <a href="{% url 'enfermeiro_consultas' %}">Consultas</a>
+            <a href="{% url 'enfermeiro_pacientes' %}">Pacientes</a>
+            <a href="{% url 'enfermeiro_relatorios' %}">Relatórios</a>
+            <a href="{% url 'logout' %}">Sair</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="content-box">
+            <div class="patient-header">
+                <div>
+                    <h2>👤 {{ paciente.id_utilizador.nome }}</h2>
+                    <p style="color: #666; margin-top: 5px;">Detalhes do Paciente</p>
+                </div>
+                <a href="{% url 'enfermeiro_pacientes' %}" class="btn">← Voltar</a>
+            </div>
+
+            <div class="patient-info">
+                <div class="info-item">
+                    <div class="info-label">Email</div>
+                    <div class="info-value">{{ paciente.id_utilizador.email }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Nº Utente</div>
+                    <div class="info-value">{{ paciente.id_utilizador.n_utente }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Telefone</div>
+                    <div class="info-value">{{ paciente.id_utilizador.telefone|default:"Não informado" }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Data de Nascimento</div>
+                    <div class="info-value">{{ paciente.data_nasc|date:"d/m/Y" }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Género</div>
+                    <div class="info-value">{{ paciente.genero }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Morada</div>
+                    <div class="info-value">{{ paciente.morada|default:"Não informado" }}</div>
+                </div>
+            </div>
+
+            <h3 class="section-title">📅 Histórico de Consultas</h3>
+            {% if consultas %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Hora</th>
+                            <th>Médico</th>
+                            <th>Especialidade</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for consulta in consultas %}
+                            <tr>
+                                <td>{{ consulta.data_consulta|date:"d/m/Y" }}</td>
+                                <td>{{ consulta.hora_consulta }}</td>
+                                <td>{{ consulta.id_medico.id_utilizador.nome }}</td>
+                                <td>{{ consulta.id_medico.id_especialidade.nome_especialidade|default:"N/A" }}</td>
+                                <td><span class="badge badge-{{ consulta.estado }}">{{ consulta.estado }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">Nenhuma consulta registada</div>
+            {% endif %}
+
+            <h3 class="section-title">💰 Faturas</h3>
+            {% if faturas %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Método Pagamento</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fatura in faturas %}
+                            <tr>
+                                <td>{{ fatura.data_pagamento|date:"d/m/Y"|default:"Pendente" }}</td>
+                                <td>€{{ fatura.valor }}</td>
+                                <td>{{ fatura.metodo_pagamento }}</td>
+                                <td><span class="badge badge-{{ fatura.estado }}">{{ fatura.estado }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">Nenhuma fatura registada</div>
+            {% endif %}
+
+            <h3 class="section-title">💊 Receitas</h3>
+            {% if receitas %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Medicamento</th>
+                            <th>Dosagem</th>
+                            <th>Médico</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for receita in receitas %}
+                            <tr>
+                                <td>{{ receita.data_prescricao|date:"d/m/Y" }}</td>
+                                <td>{{ receita.medicamento }}</td>
+                                <td>{{ receita.dosagem }}</td>
+                                <td>{{ receita.id_consulta.id_medico.id_utilizador.nome }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">Nenhuma receita registada</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

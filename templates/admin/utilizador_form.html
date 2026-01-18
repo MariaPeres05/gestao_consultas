@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ action }} Utilizador</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #667eea; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .dynamic-fields { display: none; padding: 15px; background: #f8f9fa; border-radius: 5px; margin-top: 10px; }
+    </style>
+    <script>
+        function toggleFields() {
+            const role = document.getElementById('role').value;
+            document.querySelectorAll('.dynamic-fields').forEach(el => el.style.display = 'none');
+            const section = document.getElementById('fields-' + role);
+            if (section) section.style.display = 'block';
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ action }} Utilizador</h1>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Nome *</label>
+                <input type="text" name="nome" value="{{ utilizador.nome|default:'' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" name="email" value="{{ utilizador.email|default:'' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Telefone</label>
+                <input type="tel" name="telefone" value="{{ utilizador.telefone|default:'' }}">
+            </div>
+            {% if action == 'Criar' %}
+            <div class="form-group">
+                <label>Role *</label>
+                <select name="role" id="role" onchange="toggleFields()" required>
+                    <option value="">Selecione...</option>
+                    {% for value, label in roles %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Senha *</label>
+                <input type="password" name="senha" required>
+            </div>
+            
+            <div id="fields-medico" class="dynamic-fields">
+                <h3>Dados do Médico</h3>
+                <div class="form-group">
+                    <label>Número de Ordem</label>
+                    <input type="text" name="numero_ordem">
+                </div>
+                <div class="form-group">
+                    <label>Especialidade</label>
+                    <select name="especialidade_id">
+                        <option value="">Sem especialidade</option>
+                        {% for esp in especialidades %}
+                        <option value="{{ esp.id_especialidade }}">{{ esp.nome_especialidade }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div id="fields-enfermeiro" class="dynamic-fields">
+                <h3>Dados do Enfermeiro</h3>
+                <div class="form-group">
+                    <label>Número de Ordem</label>
+                    <input type="text" name="n_ordem_enf">
+                </div>
+            </div>
+            
+            <div id="fields-paciente" class="dynamic-fields">
+                <h3>Dados do Paciente</h3>
+                <div class="form-group">
+                    <label>Número de Utente</label>
+                    <input type="text" name="n_utente">
+                </div>
+                <div class="form-group">
+                    <label>Data de Nascimento *</label>
+                    <input type="date" name="data_nasc">
+                </div>
+                <div class="form-group">
+                    <label>Género *</label>
+                    <select name="genero">
+                        <option value="">Selecione...</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Feminino</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Morada</label>
+                    <input type="text" name="morada">
+                </div>
+            </div>
+            {% else %}
+            <div class="form-group">
+                <label>Nova Senha (deixe em branco para não alterar)</label>
+                <input type="password" name="senha">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" name="ativo" {% if utilizador.ativo %}checked{% endif %}> Ativo</label>
+            </div>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+            <a href="{% url 'admin_utilizadores' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </form>
+    </div>
+</body>
+</html>
