@@ -1,53 +1,64 @@
 <!-- core/templates/core/register.html -->
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Registar</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f2f2f2; }
-        .container {
-            width: 450px; margin: 60px auto; padding: 30px;
-            background: white; border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        input, button {
-            width: 100%; padding: 10px; margin-top: 10px;
-            border-radius: 5px; border: 1px solid #ccc;
-        }
-        button {
-            background: #28a745; color: white; cursor: pointer;
-        }
-        button:hover { background: #1e7e34; }
-        .errors { color: red; margin-top: 10px; }
-        a { color: #007bff; text-decoration: none; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registar - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
-<body>
+<body class="auth-page">
 
 <div class="container">
+    <div class="logo">🏥</div>
     <h2>Criar Conta</h2>
+    <p class="subtitle">Junte-se ao MediPulse</p>
+
+    {% if form.errors %}
+        <div class="errors">
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    {% endif %}
 
     <form method="post">
         {% csrf_token %}
 
-        {{ form.nome.label_tag }} {{ form.nome }}
-        {{ form.email.label_tag }} {{ form.email }}
-        {{ form.telefone.label_tag }} {{ form.telefone }}
-        {{ form.n_utente.label_tag }} {{ form.n_utente }}
-        {{ form.password.label_tag }} {{ form.password }}
-        {{ form.confirm_password.label_tag }} {{ form.confirm_password }}
+        <div class="form-group">
+            <label for="id_nome">Nome Completo</label>
+            {{ form.nome }}
+        </div>
 
-        <button type="submit">Registar</button>
+        <div class="form-group">
+            <label for="id_email">Email</label>
+            {{ form.email }}
+        </div>
 
-        {% if form.errors %}
-            <div class="errors">
-                {{ form.errors }}
-            </div>
-        {% endif %}
+        <div class="form-group">
+            <label for="id_telefone">Telefone</label>
+            {{ form.telefone }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password">Password</label>
+            {{ form.password }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_confirm_password">Confirmar Password</label>
+            {{ form.confirm_password }}
+        </div>
+
+        <button type="submit">Criar Conta</button>
     </form>
 
-    <p>Já tens conta? <a href="{% url 'login' %}">Entrar</a></p>
+    <div class="register-link">
+        <p>Já tens conta? <a href="{% url 'login' %}">Entrar</a></p>
+    </div>
 </div>
 
 </body>

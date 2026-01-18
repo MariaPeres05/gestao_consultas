@@ -1,72 +1,81 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  <meta charset="UTF-8">
-  <title>Faturas</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#f7fafc;padding:30px}
-    .box{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-    .muted{color:#666}
-    .btn{background:#0b64d1;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
-    form.inline{display:inline}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Faturas - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body>
-  <div class="box">
-    <h2>Minhas Faturas</h2>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Minhas Faturas</h1>
+            <div class="user-info">
+                <span>{{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
 
-    {% if faturas and faturas|length > 0 %}
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Consulta (data)</th>
-            <th>Médico</th>
-            <th>Valor</th>
-            <th>Método</th>
-            <th>Estado</th>
-            <th>Data Pagamento</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for f in faturas %}
-            <tr>
-              <td>{{ f.id_fatura }}</td>
-              <td>{{ f.id_consulta.data_consulta }}</td>
-              <td>{{ f.id_consulta.id_medico.id_utilizador.nome }}</td>
-              <td>{{ f.valor }}</td>
-              <td>{{ f.metodo_pagamento }}</td>
-              <td>{{ f.estado }}</td>
-              <td>{% if f.data_pagamento %}{{ f.data_pagamento }}{% else %}-{% endif %}</td>
-              <td>
-                {% if f.estado|lower != 'paga' %}
-                  <form method="post" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="pay">
-                    <input type="hidden" name="fatura_id" value="{{ f.id_fatura }}">
-                    <select name="metodo_pagamento">
-                      <option value="MBWAY">MBWAY</option>
-                      <option value="Cartao">Cartão</option>
-                      <option value="Transferencia">Transferência</option>
-                    </select>
-                    <button type="submit" class="btn">Marcar como paga</button>
-                  </form>
-                {% else %}
-                  <span class="muted">Já paga</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="muted">Não foram encontradas faturas associadas às suas consultas.</p>
-    {% endif %}
+        <div class="nav-menu">
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}">🏥 Minhas Consultas</a>
+            <a href="{% url 'patient_receitas' %}">💊 Receitas</a>
+            <a href="{% url 'listar_faturas' %}" class="active">💰 Faturas</a>
+            <a href="{% url 'patient_perfil_editar' %}">👤 Perfil</a>
+        </div>
 
-    <p style="margin-top:18px"><a href="{% url 'patient_home' %}">Voltar à área do paciente</a></p>
-  </div>
+        <div class="content-section">
+            <h2>Histórico de Faturas</h2>
+            {% if faturas and faturas|length > 0 %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data Consulta</th>
+                        <th>Médico</th>
+                        <th>Valor</th>
+                        <th>Método</th>
+                        <th>Estado</th>
+                        <th>Data Pagamento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in faturas %}
+                    <tr>
+                        <td>{{ f.id_fatura }}</td>
+                        <td>{{ f.id_consulta.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ f.id_consulta.id_medico.id_utilizador.nome }}</td>
+                        <td>€{{ f.valor }}</td>
+                        <td>{{ f.metodo_pagamento }}</td>
+                        <td><span class="badge {{ f.estado|lower }}">{{ f.estado|upper }}</span></td>
+                        <td>{% if f.data_pagamento %}{{ f.data_pagamento|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if f.estado|lower != 'paga' %}
+                            <form method="post" style="display:inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="pay">
+                                <input type="hidden" name="fatura_id" value="{{ f.id_fatura }}">
+                                <select name="metodo_pagamento">
+                                    <option value="MBWAY">MBWAY</option>
+                                    <option value="Cartao">Cartão</option>
+                                    <option value="Transferencia">Transferência</option>
+                                </select>
+                                <button type="submit" class="btn btn-success" onclick="return confirm('Confirmar pagamento?')">Pagar</button>
+                            </form>
+                            {% else %}
+                            <span style="color:#27ae60">✓ Paga</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #666; padding: 20px;">Ainda não tens faturas registadas.</p>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>

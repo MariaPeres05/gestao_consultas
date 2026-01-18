@@ -1,0 +1,130 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 MediPulse - Painel Administrativo</h1>
+            <div class="user-info">
+                <span>👤 {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert {% if message.tags %}{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="nav-menu">
+            <a href="{% url 'admin_dashboard' %}" class="active">📊 Dashboard</a>
+            <a href="{% url 'admin_utilizadores' %}">👥 Utilizadores</a>
+            <a href="{% url 'admin_regioes' %}">🗺️ Regiões</a>
+            <a href="{% url 'admin_especialidades' %}">🏥 Especialidades</a>
+            <a href="{% url 'admin_unidades' %}">🏢 Unidades</a>
+            <a href="{% url 'admin_consultas' %}">📅 Consultas</a>
+            <a href="{% url 'admin_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'admin_relatorios' %}">📈 Relatórios</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card variant-indigo">
+                <h3>👥 Pacientes</h3>
+                <div class="number">{{ total_pacientes }}</div>
+            </div>
+            <div class="stat-card variant-orange">
+                <h3>👨‍⚕️ Médicos</h3>
+                <div class="number">{{ total_medicos }}</div>
+            </div>
+            <div class="stat-card variant-teal">
+                <h3>👩‍⚕️ Enfermeiros</h3>
+                <div class="number">{{ total_enfermeiros }}</div>
+            </div>
+            <div class="stat-card variant-blue">
+                <h3>🏢 Unidades</h3>
+                <div class="number">{{ total_unidades }}</div>
+            </div>
+            <div class="stat-card variant-green">
+                <h3>📅 Consultas Hoje</h3>
+                <div class="number">{{ consultas_hoje }}</div>
+            </div>
+            <div class="stat-card variant-yellow">
+                <h3>⏳ Pendentes</h3>
+                <div class="number">{{ consultas_pendentes }}</div>
+            </div>
+            <div class="stat-card variant-blue">
+                <h3>📊 Consultas Mês</h3>
+                <div class="number">{{ consultas_mes }}</div>
+            </div>
+            <div class="stat-card variant-green">
+                <h3>💰 Receita Mês</h3>
+                <div class="number">€{{ receita_mes|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2>📋 Últimas Consultas</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Paciente</th>
+                        <th>Médico</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consulta in ultimas_consultas %}
+                    <tr>
+                        <td>{{ consulta.id_consulta }}</td>
+                        <td>{{ consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>{{ consulta.id_medico.id_utilizador.nome }}</td>
+                        <td>{{ consulta.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ consulta.hora_consulta }}</td>
+                        <td>
+                            {% if consulta.estado == 'realizada' %}
+                                <span class="badge success">{{ consulta.estado|upper }}</span>
+                            {% elif consulta.estado == 'agendada' %}
+                                <span class="badge warning">{{ consulta.estado|upper }}</span>
+                            {% elif consulta.estado == 'cancelada' %}
+                                <span class="badge danger">{{ consulta.estado|upper }}</span>
+                            {% else %}
+                                <span class="badge info">{{ consulta.estado|upper }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center;">Nenhuma consulta registada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if faturas_pendentes > 0 %}
+        <div class="content-section">
+            <h2>⚠️ Alertas</h2>
+            <p style="color: #e74c3c; font-weight: bold;">
+                Existem {{ faturas_pendentes }} fatura(s) pendente(s) de pagamento.
+                <a href="{% url 'admin_faturas' %}?estado=pendente" style="color: #667eea;">Ver faturas</a>
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Receita - MediPulse</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="medico-body">
+    <div class="container">
+        <div class="header medico-header">
+            <div class="user-info">
+                <span class="user-name">👨‍⚕️ Dr. {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-link">Sair</a>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="{% url 'medico_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'medico_agenda' %}">📅 Agenda</a>
+            <a href="{% url 'medico_disponibilidade' %}">🕐 Disponibilidade</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </nav>
+
+        <div class="content-section">
+            <div class="section-header">
+                <h2>💊 Criar Receita Médica</h2>
+                <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-secondary">
+                    ← Voltar à Consulta
+                </a>
+            </div>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>📋 Informações da Consulta</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Paciente:</strong>
+                            <span>{{ consulta.id_paciente.id_utilizador.nome }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Data:</strong>
+                            <span>{{ consulta.data_consulta|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Hora:</strong>
+                            <span>{{ consulta.hora_consulta|time:"H:i" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Estado:</strong>
+                            <span class="badge badge-{{ consulta.estado }}">{{ consulta.get_estado_display|default:consulta.estado }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>📝 Dados da Receita</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="prescription-form">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label for="medicamento">Medicamento *</label>
+                            <input 
+                                type="text" 
+                                id="medicamento" 
+                                name="medicamento" 
+                                required
+                                placeholder="Ex: Ibuprofeno 600mg"
+                                class="form-control">
+                            <small class="form-hint">Nome completo do medicamento e concentração</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dosagem">Dosagem / Posologia *</label>
+                            <input 
+                                type="text" 
+                                id="dosagem" 
+                                name="dosagem" 
+                                required
+                                placeholder="Ex: 1 comprimido de 8 em 8 horas"
+                                class="form-control">
+                            <small class="form-hint">Quantidade e frequência de administração</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="instrucoes">Instruções Adicionais</label>
+                            <textarea 
+                                id="instrucoes" 
+                                name="instrucoes" 
+                                rows="4"
+                                placeholder="Ex: Tomar após as refeições. Duração: 7 dias"
+                                class="form-control"></textarea>
+                            <small class="form-hint">Informações complementares sobre a toma</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                💊 Criar Receita
+                            </button>
+                            <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

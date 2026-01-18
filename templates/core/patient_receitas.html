@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Receitas - MediPulse</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="patient-body">
+    <div class="container">
+        <div class="header">
+            <div class="user-info">
+                <span class="user-name">👤 {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-link">Sair</a>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="{% url 'listar_consultas' %}">🏥 Consultas</a>
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar</a>
+            <a href="{% url 'patient_receitas' %}" class="active">💊 Receitas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </nav>
+
+        <div class="content-section">
+            <div class="section-header">
+                <h2>💊 Minhas Receitas Médicas</h2>
+            </div>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if receitas %}
+                <div class="prescriptions-grid">
+                    {% for receita in receitas %}
+                        <div class="prescription-card" onclick="window.location.href='{% url 'patient_receita_detalhes' receita.id_receita %}'">
+                            <div class="prescription-header">
+                                <div class="prescription-icon">💊</div>
+                                <div class="prescription-info">
+                                    <h3>{{ receita.medicamento }}</h3>
+                                    <p class="prescription-date">
+                                        📅 {{ receita.data_prescricao|date:"d/m/Y" }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="prescription-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">👨‍⚕️ Médico:</span>
+                                    <span class="detail-value">Dr. {{ receita.id_consulta.id_medico.id_utilizador.nome }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">🏥 Especialidade:</span>
+                                    <span class="detail-value">{{ receita.id_consulta.id_medico.id_especialidade.nome_especialidade }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">💊 Dosagem:</span>
+                                    <span class="detail-value">{{ receita.dosagem }}</span>
+                                </div>
+                            </div>
+
+                            <div class="prescription-footer">
+                                <span class="view-details">Ver Detalhes →</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="info-box">
+                    <p>💡 <strong>Dica:</strong> Clique em qualquer receita para ver todos os detalhes e instruções de uso.</p>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <h3>Nenhuma Receita Encontrada</h3>
+                    <p>Ainda não tem receitas médicas registadas no sistema.</p>
+                    <p>As receitas aparecerão aqui após as suas consultas com os médicos.</p>
+                    <a href="{% url 'marcar_consulta' %}" class="btn btn-primary">
+                        📅 Agendar Consulta
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <style>
+        .prescriptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .prescription-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .prescription-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(34, 139, 230, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .prescription-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f1f3f5;
+        }
+
+        .prescription-icon {
+            font-size: 2.5rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .prescription-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-dark);
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .prescription-date {
+            margin: 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .prescription-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .detail-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .prescription-footer {
+            padding-top: 1rem;
+            border-top: 2px solid #f1f3f5;
+            text-align: right;
+        }
+
+        .view-details {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: white;
+            border-radius: 12px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .empty-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+            font-size: 1.05rem;
+        }
+
+        .empty-state .btn {
+            margin-top: 1.5rem;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid var(--primary);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+        }
+
+        .info-box p {
+            margin: 0;
+            color: #0c5aa6;
+        }
+
+        @media (max-width: 768px) {
+            .prescriptions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

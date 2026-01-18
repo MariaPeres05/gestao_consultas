@@ -1,0 +1,172 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes da Consulta - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body class="medico-body">
+    <div class="container">
+        <div class="header medico-header">
+            <div class="user-info">
+                <span class="user-name">👨‍⚕️ Dr. {{ request.user.nome }}</span>
+                <a href="{% url 'logout' %}" class="logout-link">Sair</a>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="{% url 'medico_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'medico_agenda' %}">📅 Agenda</a>
+            <a href="{% url 'medico_disponibilidade' %}">🕐 Disponibilidade</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </nav>
+
+        <div class="content-section">
+            <div class="section-header">
+                <h2>📋 Detalhes da Consulta</h2>
+                <a href="{% url 'medico_dashboard' %}" class="btn btn-secondary">← Voltar</a>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>👤 Informações do Paciente</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Nome Completo:</strong>
+                            <span>{{ consulta.id_paciente.id_utilizador.nome }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Email:</strong>
+                            <span>{{ consulta.id_paciente.id_utilizador.email }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Telefone:</strong>
+                            <span>{{ consulta.id_paciente.id_utilizador.telefone|default:"Não informado" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>N° Utente:</strong>
+                            <span>{{ consulta.id_paciente.id_utilizador.n_utente }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Data de Nascimento:</strong>
+                            <span>{{ consulta.id_paciente.data_nasc|date:"d/m/Y"|default:"Não informada" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Género:</strong>
+                            <span>{{ consulta.id_paciente.genero|default:"Não informado" }}</span>
+                        </div>
+                    </div>
+
+                    {% if consulta.id_paciente.alergias %}
+                        <div class="alert alert-danger" style="margin-top: 1rem;">
+                            <strong>⚠️ ALERGIAS:</strong> {{ consulta.id_paciente.alergias }}
+                        </div>
+                    {% endif %}
+
+                    {% if consulta.id_paciente.observacoes %}
+                        <div class="alert alert-info" style="margin-top: 1rem;">
+                            <strong>📝 Observações:</strong> {{ consulta.id_paciente.observacoes }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>🗓️ Detalhes da Consulta</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Data:</strong>
+                            <span>{{ consulta.data_consulta|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Hora:</strong>
+                            <span>{{ consulta.hora_consulta|time:"H:i" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Estado:</strong>
+                            <span class="badge badge-{{ consulta.estado }}">{{ consulta.estado|title }}</span>
+                        </div>
+                    </div>
+
+                    {% if consulta.motivo %}
+                        <div class="alert alert-warning" style="margin-top: 1rem;">
+                            <strong>💬 Motivo da Consulta:</strong><br>
+                            {{ consulta.motivo }}
+                        </div>
+                    {% endif %}
+
+                    {% if consulta.notas_clinicas %}
+                        <div class="alert alert-info" style="margin-top: 1rem;">
+                            <strong>📝 Notas Clínicas:</strong><br>
+                            {{ consulta.notas_clinicas }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>⚡ Ações</h3>
+                </div>
+                <div class="card-body">
+                    <div class="button-group">
+                        {% if consulta.estado == 'confirmada' or consulta.estado == 'realizada' %}
+                            <a href="{% url 'medico_criar_receita' consulta.id_consulta %}" class="btn btn-primary">
+                                💊 Criar Receita
+                            </a>
+                            <a href="{% url 'medico_listar_receitas' consulta.id_consulta %}" class="btn btn-secondary">
+                                📋 Ver Receitas
+                            </a>
+                        {% endif %}
+                        
+                        {% if consulta.estado == 'agendada' %}
+                            <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">
+                                ✅ Confirmar Consulta
+                            </a>
+                            <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">
+                                ❌ Recusar
+                            </a>
+                        {% elif consulta.estado == 'confirmada' %}
+                            <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-primary">
+                                📝 Registar Consulta
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if historico %}
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📜 Histórico de Consultas</h3>
+                    </div>
+                    <div class="card-body">
+                        {% for cons in historico %}
+                            <div class="historico-item" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem;">
+                                <h4 style="margin: 0 0 0.5rem 0; color: var(--text-dark);">
+                                    📅 {{ cons.data_consulta|date:"d/m/Y" }}
+                                </h4>
+                                <p style="margin: 0.25rem 0;">
+                                    <strong>Motivo:</strong> {{ cons.motivo|truncatewords:20|default:"Não especificado" }}
+                                </p>
+                                {% if cons.notas_clinicas %}
+                                    <p style="margin: 0.25rem 0;">
+                                        <strong>Notas:</strong> {{ cons.notas_clinicas|truncatewords:30 }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

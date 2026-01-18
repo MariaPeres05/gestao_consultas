@@ -1,57 +1,62 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ system_name }} - Área do Paciente</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f5f7fb; color: #222; }
-        .container { max-width: 900px; margin: 60px auto; background: white; padding: 28px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-        h1 { margin: 0 0 8px 0; }
-        p.lead { color: #555; }
-        .grid { display:flex; gap:12px; margin-top:18px; flex-wrap:wrap }
-        .card { flex:1 1 280px; background:#fff; border-radius:10px; padding:18px; border:1px solid #e6eef8; text-align:left; box-shadow:0 4px 16px rgba(16,24,40,0.04); }
-        .card a { text-decoration:none; color:#0b64d1; font-weight:600 }
-        .card p { margin:8px 0 0 0; color:#666 }
-        .top { display:flex; justify-content:space-between; align-items:center }
-        .btn-logout { text-decoration:none; color:#fff; background:#ef4444; padding:8px 12px; border-radius:8px }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body>
-<div class="container">
-    <div class="top">
-        <div>
-            <h1>{{ system_name }}</h1>
-            <p class="lead">Olá, {{ user_name }} — esta é a tua área de paciente.</p>
-            <p style="margin:6px 0 0 0;color:#777; font-size:0.95rem;">Email: <strong>{{ user_email }}</strong></p>
-            <p style="margin:6px 0 0 0;color:#777; font-size:0.95rem;">Consultas: <strong>{{ consultas_count }}</strong> &nbsp;•&nbsp; Faturas: <strong>{{ faturas_count }}</strong></p>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>👤 Área do Paciente - {{ system_name }}</h1>
+                <p>Olá, {{ user_name }}!</p>
+                <p style="color: #999; font-size: 14px;">{{ user_email }}</p>
+            </div>
+            <div class="user-info">
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
         </div>
-        <div>
-            <a class="btn-logout" href="{% url 'logout' %}">Sair</a>
+
+        <div class="nav-menu">
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}">🏥 Minhas Consultas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'patient_perfil_editar' %}">👤 Perfil</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card variant-teal">
+                <h3>🏥 Total de Consultas</h3>
+                <div class="number">{{ consultas_count }}</div>
+            </div>
+            <div class="stat-card variant-green">
+                <h3>💰 Faturas</h3>
+                <div class="number">{{ faturas_count }}</div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="action-card">
+                <h3>📅 Agendar Consulta</h3>
+                <p>Escolhe data, especialidade e médico disponível para marcar a tua consulta.</p>
+                <a href="{% url 'marcar_consulta' %}" class="btn btn-primary">Agendar Nova Consulta →</a>
+            </div>
+
+            <div class="action-card">
+                <h3>🏥 Minhas Consultas</h3>
+                <p>Visualiza e gere as tuas consultas marcadas. Podes cancelar consultas se necessário.</p>
+                <a href="{% url 'listar_consultas' %}" class="btn btn-primary">Ver Consultas →</a>
+            </div>
+
+            <div class="action-card">
+                <h3>💰 Faturas</h3>
+                <p>Consulta e paga faturas associadas às tuas consultas médicas.</p>
+                <a href="{% url 'listar_faturas' %}" class="btn btn-primary">Ver Faturas →</a>
+            </div>
         </div>
     </div>
-
-    <div class="grid">
-        <div class="card">
-            <div style="font-size:18px; font-weight:700">Agendar Consulta</div>
-            <p>Escolhe data, especialidade e médico.</p>
-            <p><a href="{% url 'marcar_consulta' %}">Ir para Agendamento →</a></p>
-        </div>
-
-        <div class="card">
-            <div style="font-size:18px; font-weight:700">Minhas Consultas</div>
-            <p>Visualiza e gere as tuas consultas marcadas.</p>
-            <p><a href="{% url 'listar_consultas' %}">Ver Consultas →</a></p>
-        </div>
-
-        <div class="card">
-            <div style="font-size:18px; font-weight:700">Faturas</div>
-            <p>Consulta e paga faturas associadas às tuas consultas.</p>
-            <p><a href="{% url 'listar_faturas' %}">Ver Faturas →</a></p>
-        </div>
-    </div>
-
-    <div style="margin-top:18px; color:#666">Também podes aceder ao <a href="{% url 'dashboard' %}">Dashboard</a> geral.</div>
-</div>
 </body>
 </html>

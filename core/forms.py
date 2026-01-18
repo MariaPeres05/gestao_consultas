@@ -1,5 +1,6 @@
 # core/forms.py
 from django import forms
+from .models import Utilizador
 
 
 class LoginForm(forms.Form):
@@ -15,6 +16,12 @@ class RegisterForm(forms.Form):
     n_utente = forms.CharField(max_length=20, required=False)
     password = forms.CharField(widget=forms.PasswordInput)
     confirm_password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if Utilizador.objects.filter(email=email).exists():
+            raise forms.ValidationError("Este email já está registado. Por favor, use outro email ou faça login.")
+        return email
 
     def clean(self):
         cleaned = super().clean()

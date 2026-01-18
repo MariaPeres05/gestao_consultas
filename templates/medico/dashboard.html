@@ -1,0 +1,167 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Médico - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👨‍⚕️ Dashboard Médico - Dr(a). {{ medico.id_utilizador.nome }}</h1>
+            <div class="user-info">
+                <span>{{ medico.id_especialidade.nome_especialidade }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="nav-menu">
+            <a href="{% url 'medico_dashboard' %}" class="active">📊 Dashboard</a>
+            <a href="{% url 'medico_agenda' %}">📅 Agenda</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card variant-green">
+                <h3>📅 Consultas Hoje</h3>
+                <div class="number">{{ consultas_hoje|length }}</div>
+            </div>
+            <div class="stat-card variant-blue">
+                <h3>📊 Consultas Semana</h3>
+                <div class="number">{{ consultas_semana }}</div>
+            </div>
+            <div class="stat-card variant-indigo">
+                <h3>📈 Consultas Mês</h3>
+                <div class="number">{{ consultas_mes }}</div>
+            </div>
+            <div class="stat-card variant-yellow">
+                <h3>⏳ Pendentes</h3>
+                <div class="number">{{ pedidos_pendentes }}</div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2>📅 Consultas de Hoje ({{ hoje|date:"d/m/Y" }})</h2>
+            {% if consultas_hoje %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Paciente</th>
+                        <th>Motivo</th>
+                        <th>Estado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consulta in consultas_hoje %}
+                    <tr>
+                        <td>{{ consulta.hora_consulta }}</td>
+                        <td>{{ consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>{{ consulta.motivo|default:"Sem motivo especificado"|truncatewords:8 }}</td>
+                        <td>
+                            {% if consulta.estado == 'realizada' %}
+                                <span class="badge success">{{ consulta.estado|upper }}</span>
+                            {% elif consulta.estado == 'agendada' or consulta.estado == 'marcada' %}
+                                <span class="badge warning">{{ consulta.estado|upper }}</span>
+                            {% elif consulta.estado == 'cancelada' %}
+                                <span class="badge danger">{{ consulta.estado|upper }}</span>
+                            {% else %}
+                                <span class="badge info">{{ consulta.estado|upper }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-primary">Ver</a>
+                            {% if consulta.estado == 'agendada' %}
+                                {% if consulta.medico_aceitou %}
+                                    <span style="color:#28a745; font-weight:bold">✅ Já confirmaste</span>
+                                    <br><small style="color:#666">Aguardando paciente...</small>
+                                {% else %}
+                                    <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
+                                {% endif %}
+                            {% elif consulta.estado == 'marcada' %}
+                                <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
+                            {% elif consulta.estado == 'confirmada' %}
+                                <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-success">Registar</a>
+                                {% if consulta.can_cancel_24h %}
+                                    <a href="{% url 'medico_cancelar_consulta' consulta.id_consulta %}" class="btn btn-warning">🚫 Cancelar</a>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #666; padding: 20px;">Nenhuma consulta agendada para hoje.</p>
+            {% endif %}
+        </div>
+
+        <div class="content-section">
+            <h2>📋 Próximas Consultas</h2>
+            {% if proximas_consultas %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Paciente</th>
+                        <th>Estado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consulta in proximas_consultas %}
+                    <tr>
+                        <td>{{ consulta.data_consulta|date:"d/m/Y" }}</td>
+                        <td>{{ consulta.hora_consulta }}</td>
+                        <td>{{ consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>
+                            {% if consulta.estado == 'agendada' or consulta.estado == 'marcada' %}
+                                <span class="badge warning">{{ consulta.estado|upper }}</span>
+                            {% elif consulta.estado == 'confirmada' %}
+                                <span class="badge info">{{ consulta.estado|upper }}</span>
+                            {% else %}
+                                <span class="badge success">{{ consulta.estado|upper }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-primary">Ver</a>
+                            {% if consulta.estado == 'agendada' %}
+                                {% if consulta.medico_aceitou %}
+                                    <span style="color:#28a745; font-weight:bold">✅ Já confirmaste</span>
+                                    <br><small style="color:#666">Aguardando paciente...</small>
+                                {% else %}
+                                    <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
+                                    <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">Recusar</a>
+                                {% endif %}
+                            {% elif consulta.estado == 'marcada' %}
+                                <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
+                                <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">Recusar</a>
+                            {% elif consulta.estado == 'confirmada' %}
+                                {% if consulta.can_cancel_24h %}
+                                    <a href="{% url 'medico_cancelar_consulta' consulta.id_consulta %}" class="btn btn-warning">🚫 Cancelar</a>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #666; padding: 20px;">Sem consultas agendadas.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+core/__pycache__/__init__.cpython-312.pyc
+core/__pycache__/admin.cpython-312.pyc
+core/__pycache__/apps.cpython-312.pyc
+core/__pycache__/forms.cpython-312.pyc
+core/__pycache__/urls.cpython-312.pyc
+core/__pycache__/views.cpython-312.pyc
+core/__pycache__/models.cpython-312.pyc
+gestao_consultas/__pycache__/settings.cpython-312.pyc
+gestao_consultas/__pycache__/__init__.cpython-312.pyc
+gestao_consultas/__pycache__/urls.cpython-312.pyc

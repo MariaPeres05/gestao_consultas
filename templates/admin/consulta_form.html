@@ -1,0 +1,376 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcar Consulta - Admin - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <style>
+        .autocomplete-container {
+            position: relative;
+        }
+        
+        .autocomplete-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .autocomplete-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .autocomplete-results.show {
+            display: block;
+        }
+        
+        .autocomplete-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .autocomplete-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        .autocomplete-item .name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .autocomplete-item .details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .no-results {
+            padding: 10px;
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+        }
+        
+        .loading {
+            padding: 10px;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .selected-item {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+        
+        .selected-item .clear {
+            margin-left: 8px;
+            color: #666;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .selected-item .clear:hover {
+            color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Marcar Consulta</h1>
+            <div class="user-info">
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'admin_dashboard' %}">📊 Dashboard</a>
+            <a href="{% url 'admin_utilizadores' %}">👥 Utilizadores</a>
+            <a href="{% url 'admin_regioes' %}">🗺️ Regiões</a>
+            <a href="{% url 'admin_especialidades' %}">🏥 Especialidades</a>
+            <a href="{% url 'admin_unidades' %}">🏢 Unidades</a>
+            <a href="{% url 'admin_consultas' %}" class="active">📅 Consultas</a>
+            <a href="{% url 'admin_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'admin_relatorios' %}">📈 Relatórios</a>
+            <a href="{% url 'profile_view' %}">👤 Perfil</a>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert {% if message.tags %}{{ message.tags }}{% else %}error{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="content-section">
+            <h2>Marcar Consulta em Nome do Paciente</h2>
+            
+            <div class="info-box">
+                <p>💡 <strong>Dica:</strong> Utilize este formulário para marcar consultas em nome de pacientes que contactam por telefone ou presencialmente.</p>
+            </div>
+
+            <form method="post" id="consultaForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="paciente-search">Paciente: *</label>
+                    <div class="autocomplete-container">
+                        <input 
+                            type="text" 
+                            id="paciente-search" 
+                            class="autocomplete-input"
+                            placeholder="Digite o nome, email ou nº utente do paciente..."
+                            autocomplete="off">
+                        <div id="paciente-results" class="autocomplete-results"></div>
+                        <input type="hidden" name="paciente" id="paciente" required>
+                    </div>
+                    <div id="paciente-selected"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="especialidade">Especialidade:</label>
+                        <select name="especialidade" id="especialidade" onchange="loadDisponibilidades()">
+                            <option value="">Todas as especialidades</option>
+                            {% for e in especialidades %}
+                            <option value="{{ e.id_especialidade }}">{{ e.nome_especialidade }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="unidade">Unidade de Saúde: *</label>
+                        <select name="unidade" id="unidade" required onchange="loadDisponibilidades()">
+                            <option value="">Selecione uma unidade</option>
+                            {% for u in unidades %}
+                            <option value="{{ u.id_unidade }}">{{ u.nome_unidade }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="data_consulta">Data: *</label>
+                    <input type="date" name="data_consulta" id="data_consulta" required min="{{ hoje|date:'Y-m-d' }}" onchange="loadDisponibilidades()">
+                </div>
+
+                <div class="form-group">
+                    <label for="disponibilidade">Horário Disponível: *</label>
+                    <select name="disponibilidade" id="disponibilidade" required onchange="updateTimeFields()">
+                        <option value="">Selecione primeiro a unidade e data</option>
+                    </select>
+                    <p style="color: #666; font-size: 13px; margin-top: 5px;">💡 Selecione a unidade e data para ver os horários disponíveis</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="hora_inicio">Hora Início da Consulta: *</label>
+                        <input type="time" name="hora_inicio" id="hora_inicio" required>
+                        <p style="color: #666; font-size: 12px; margin-top: 3px;">Hora de início da consulta</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="hora_fim">Hora Fim da Consulta: *</label>
+                        <input type="time" name="hora_fim" id="hora_fim" required>
+                        <p style="color: #666; font-size: 12px; margin-top: 3px;">Hora de término da consulta</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="motivo_consulta">Motivo da Consulta:</label>
+                    <textarea name="motivo_consulta" id="motivo_consulta" placeholder="Descreva o motivo da consulta..."></textarea>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">💾 Marcar Consulta</button>
+                    <a href="{% url 'admin_consultas' %}" class="btn btn-secondary">← Voltar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Autocomplete functionality
+        let searchTimeout;
+        const pacienteSearch = document.getElementById('paciente-search');
+        const pacienteResults = document.getElementById('paciente-results');
+        const pacienteHidden = document.getElementById('paciente');
+        const pacienteSelected = document.getElementById('paciente-selected');
+        
+        pacienteSearch.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                pacienteResults.classList.remove('show');
+                return;
+            }
+            
+            clearTimeout(searchTimeout);
+            pacienteResults.innerHTML = '<div class="loading">Procurando...</div>';
+            pacienteResults.classList.add('show');
+            
+            searchTimeout = setTimeout(() => {
+                fetch(`/admin-panel/api/search-pacientes/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results.length === 0) {
+                            pacienteResults.innerHTML = '<div class="no-results">Nenhum paciente encontrado</div>';
+                        } else {
+                            pacienteResults.innerHTML = data.results.map(item => `
+                                <div class="autocomplete-item" data-id="${item.id}" data-nome="${item.nome}">
+                                    <div class="name">${item.nome}</div>
+                                    <div class="details">${item.email} • Nº Utente: ${item.n_utente}</div>
+                                </div>
+                            `).join('');
+                            
+                            // Add click handlers
+                            document.querySelectorAll('#paciente-results .autocomplete-item').forEach(item => {
+                                item.addEventListener('click', function() {
+                                    const id = this.dataset.id;
+                                    const nome = this.dataset.nome;
+                                    selectPaciente(id, nome);
+                                });
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao procurar pacientes:', error);
+                        pacienteResults.innerHTML = '<div class="no-results">Erro ao procurar</div>';
+                    });
+            }, 300);
+        });
+        
+        function selectPaciente(id, nome) {
+            pacienteHidden.value = id;
+            pacienteSearch.value = '';
+            pacienteResults.classList.remove('show');
+            pacienteSelected.innerHTML = `
+                <div class="selected-item">
+                    ✓ ${nome}
+                    <span class="clear" onclick="clearPaciente()">✕</span>
+                </div>
+            `;
+        }
+        
+        function clearPaciente() {
+            pacienteHidden.value = '';
+            pacienteSelected.innerHTML = '';
+            pacienteSearch.focus();
+        }
+        
+        // Close results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-container')) {
+                pacienteResults.classList.remove('show');
+            }
+        });
+        
+        // Set minimum date to today
+        const hoje = new Date().toISOString().split('T')[0];
+        document.getElementById('data_consulta').min = hoje;
+
+        // Load disponibilidades when filters change
+        function loadDisponibilidades() {
+            const unidade = document.getElementById('unidade').value;
+            const data = document.getElementById('data_consulta').value;
+            const especialidade = document.getElementById('especialidade').value;
+            const disponibilidadeSelect = document.getElementById('disponibilidade');
+            
+            // Clear current options
+            disponibilidadeSelect.innerHTML = '<option value="">Carregando...</option>';
+            
+            if (!unidade || !data) {
+                disponibilidadeSelect.innerHTML = '<option value="">Selecione unidade e data primeiro</option>';
+                return;
+            }
+            
+            // Build URL with query parameters
+            let url = `/admin-panel/disponibilidades/list/?unidade=${unidade}&data=${data}`;
+            if (especialidade) {
+                url += `&especialidade=${especialidade}`;
+            }
+            
+            // Fetch disponibilidades
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    disponibilidadeSelect.innerHTML = '';
+                    
+                    if (data.disponibilidades.length === 0) {
+                        disponibilidadeSelect.innerHTML = '<option value="">Nenhum horário disponível</option>';
+                    } else {
+                        data.disponibilidades.forEach(disp => {
+                            const option = document.createElement('option');
+                            option.value = disp.id;
+                            option.dataset.horaInicio = disp.hora_inicio;
+                            option.dataset.horaFim = disp.hora_fim;
+                            option.textContent = `${disp.medico_nome} - ${disp.hora_inicio} às ${disp.hora_fim}`;
+                            if (disp.especialidade) {
+                                option.textContent += ` (${disp.especialidade})`;
+                            }
+                            disponibilidadeSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar disponibilidades:', error);
+                    disponibilidadeSelect.innerHTML = '<option value="">Erro ao carregar horários</option>';
+                });
+        }
+
+        // Update time fields when disponibilidade is selected
+        function updateTimeFields() {
+            const disponibilidadeSelect = document.getElementById('disponibilidade');
+            const selectedOption = disponibilidadeSelect.options[disponibilidadeSelect.selectedIndex];
+            const horaInicio = document.getElementById('hora_inicio');
+            const horaFim = document.getElementById('hora_fim');
+            
+            if (selectedOption.dataset.horaInicio) {
+                horaInicio.value = selectedOption.dataset.horaInicio;
+                horaInicio.min = selectedOption.dataset.horaInicio;
+                horaInicio.max = selectedOption.dataset.horaFim;
+            }
+            
+            if (selectedOption.dataset.horaFim) {
+                horaFim.value = selectedOption.dataset.horaFim;
+                horaFim.min = selectedOption.dataset.horaInicio;
+                horaFim.max = selectedOption.dataset.horaFim;
+            }
+        }
+    </script>
+</body>
+</html>
