@@ -1,28 +1,30 @@
 # Python
-__pycache__/
 *.py[cod]
 *$py.class
+__pycache__/
 *.so
-.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
 
 # Django
 *.log
 db.sqlite3
 db.sqlite3-journal
-/static/
+/staticfiles/
 /media/
 
 # Environment variables
 .env
 .env.local
 
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv
-
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -34,18 +36,11 @@ ENV/
 Thumbs.db
 
 # Testing
-.pytest_cache/
 .coverage
 htmlcov/
+.pytest_cache/
+.tox/
 
-# Backup files
-*_backup.html
-*_old.html
-core/migrations/__pycache__/__init__.cpython-312.pyc
-core/migrations/__pycache__/0001_initial.cpython-312.pyc
-core/migrations/__pycache__/0002_initial.cpython-312.pyc
-core/migrations/__pycache__/0003_alter_utilizador_table.cpython-312.pyc
-core/migrations/__pycache__/0004_alter_utilizador_table.cpython-312.pyc
-core/migrations/__pycache__/0005_merge_utilizador_table.cpython-312.pyc
-core/migrations/__pycache__/0006_alter_utilizador_role_alter_utilizador_table.cpython-312.pyc
-core/migrations/__pycache__/0004_rename_utilizador_table.cpython-312.pyc
+# Temporary files
+nul
+*.tmp
