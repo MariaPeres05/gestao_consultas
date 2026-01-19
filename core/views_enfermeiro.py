@@ -36,7 +36,7 @@ def enfermeiro_dashboard(request):
     # Estatísticas
     hoje = timezone.now().date()
     
-    # Consultas de hoje - count only confirmed (accepted by both parties) and not canceled
+    # Consultas de hoje 
     consultas_hoje = Consulta.objects.filter(
         data_consulta=hoje,
         estado='confirmada'
