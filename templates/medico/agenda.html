@@ -58,6 +58,66 @@
         #disponibilidade-modal .modal-close:hover {
             color: #000;
         }
+        
+        /* Estilos para os itens de disponibilidade */
+        .disponibilidade-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .disponibilidade-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .disponibilidade-item.disponivel {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .disponibilidade-item.indisponivel {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .disponibilidade-item.ferias {
+            background: #e2f1ff;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .disponibilidade-item.ocupado {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            opacity: 0.7;
+        }
+        
+        .disponibilidade-item h4 {
+            color: #333;
+            margin: 0 0 5px 0;
+        }
+        
+        .disponibilidade-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .disponibilidade-item .btn-danger {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        
+        .disponibilidade-item .btn-danger:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -319,7 +379,7 @@
             <!-- Tab 3: Disponibilidade -->
             <div id="disponibilidade-tab" class="tab-content">
                 <div class="info-box">
-                    <p>💡 Defina os dias e horários em que está disponível para consultas.</p>
+                    <p>💡 Defina os dias e horários em que está disponível para consultas. As disponibilidades ocupadas por consultas já marcadas NÃO aparecem nesta lista.</p>
                 </div>
 
                 <h3>➕ Adicionar Disponibilidade</h3>
@@ -368,21 +428,42 @@
                 <h3 style="margin-top: 30px;">📋 Disponibilidades Registadas</h3>
                 {% if disponibilidades_futuras %}
                     {% for disp in disponibilidades_futuras %}
-                        <div class="disponibilidade-item {% if disp.status_slot == 'disponivel' %}disponivel{% else %}indisponivel{% endif %}">
+                        <div class="disponibilidade-item 
+                            {% if disp.status_slot == 'disponivel' %}disponivel
+                            {% elif disp.status_slot == 'indisponivel' %}indisponivel
+                            {% elif disp.status_slot == 'ferias' %}ferias
+                            {% else %}ocupado{% endif %}">
                             <h4>
                                 {{ disp.data|date:"d/m/Y (l)" }}
                                 {% if disp.status_slot == 'disponivel' %}
                                     ✅ Disponível
-                                {% else %}
+                                {% elif disp.status_slot == 'indisponivel' %}
                                     ❌ Indisponível
+                                {% elif disp.status_slot == 'ferias' %}
+                                    🏖️ Férias
+                                {% elif disp.status_slot == 'booked' %}
+                                    📅 Ocupado (com consulta)
+                                {% else %}
+                                    ⚠️ {{ disp.status_slot|title }}
                                 {% endif %}
                             </h4>
                             <p>
                                 ⏰ {{ disp.hora_inicio }} - {{ disp.hora_fim }}
-                                {% if disp.status_slot != 'disponivel' %}
-                                    | Status: {{ disp.status_slot }}
+                                {% if disp.id_unidade %}
+                                    | 📍 {{ disp.id_unidade.nome_unidade }}
                                 {% endif %}
                             </p>
+                            {% if disp.status_slot == 'disponivel' %}
+                            <div style="margin-top: 10px;">
+                                <form method="post" action="{% url 'medico_excluir_disponibilidade' disp.id_disponibilidade %}" 
+                                      onsubmit="return confirm('Tem a certeza que deseja excluir esta disponibilidade?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-danger">
+                                        🗑️ Excluir
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 {% else %}
@@ -390,7 +471,7 @@
                 {% endif %}
             </div>
 
-            <!-- Tab 3: Férias/Ausências -->
+            <!-- Tab 4: Férias/Ausências -->
             <div id="ferias-tab" class="tab-content">
                 <div class="info-box">
                     <p><strong>ℹ️ Informação:</strong></p>
@@ -459,10 +540,10 @@
         const disponibilidadesData = [
             {% for disp in disponibilidades_mes %}
             {
+                id: {{ disp.id_disponibilidade }},
                 date: '{{ disp.data|date:"Y-m-d" }}',
                 timeStart: '{{ disp.hora_inicio }}',
                 timeEnd: '{{ disp.hora_fim }}',
-                available: {{ disp.status_slot|yesno:"true,false" }},
                 status: '{{ disp.status_slot|escapejs }}',
                 type: {% if disp.status_slot == 'disponivel' %}'disponibilidade'{% else %}'indisponibilidade'{% endif %}
             },
@@ -529,7 +610,8 @@
                 
                 // Get events for this day
                 const dayConsultas = consultasData.filter(c => c.date === dateStr);
-                const dayDisponibilidades = disponibilidadesData.filter(d => d.date === dateStr);
+                const dayDisponibilidades = disponibilidadesData.filter(d => d.date === dateStr && d.type === 'disponibilidade');
+                const dayIndisponibilidades = disponibilidadesData.filter(d => d.date === dateStr && d.type === 'indisponibilidade');
                 
                 let eventsHTML = '';
                 
@@ -538,13 +620,16 @@
                     eventsHTML += `<div class="calendar-event consulta" title="Consulta: ${consulta.patient} às ${consulta.time}">${consulta.time} ${consulta.patient}</div>`;
                 });
                 
-                // Add disponibilidades
+                // Add disponibilidades (apenas as que não estão ocupadas)
                 dayDisponibilidades.forEach(disp => {
-                    if (disp.type === 'disponibilidade') {
+                    if (disp.status !== 'booked') {
                         eventsHTML += `<div class="calendar-event disponibilidade" title="Disponível: ${disp.timeStart}-${disp.timeEnd}">✓ ${disp.timeStart}-${disp.timeEnd}</div>`;
-                    } else {
-                        eventsHTML += `<div class="calendar-event indisponibilidade" title="Indisponível: ${disp.status || 'Sem motivo'}">${disp.status || 'Indisponível'}</div>`;
                     }
+                });
+                
+                // Add indisponibilidades
+                dayIndisponibilidades.forEach(disp => {
+                    eventsHTML += `<div class="calendar-event indisponibilidade" title="Indisponível: ${disp.status || 'Sem motivo'}">${disp.status || 'Indisponível'}</div>`;
                 });
                 
                 const todayClass = isToday ? ' today' : '';
@@ -564,7 +649,7 @@
         function openDayModal(dateStr, dayNum, isOtherMonth) {
             const modal = document.getElementById('day-modal');
             const dayConsultas = consultasData.filter(c => c.date === dateStr);
-            const dayDisponibilidades = disponibilidadesData.filter(d => d.date === dateStr && d.type === 'disponibilidade');
+            const dayDisponibilidades = disponibilidadesData.filter(d => d.date === dateStr && d.type === 'disponibilidade' && d.status !== 'booked');
             const dayIndisponibilidades = disponibilidadesData.filter(d => d.date === dateStr && d.type === 'indisponibilidade');
             
             // Format date for display

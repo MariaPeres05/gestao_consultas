@@ -1,0 +1,240 @@
+<div class="receita-header">
+    <p><strong>Consulta:</strong> {{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta|time:"H:i" }}</p>
+    <p><strong>Médico:</strong> {{ consulta.id_medico.id_utilizador.nome }}</p>
+    <p><strong>Unidade:</strong> {{ consulta.id_disponibilidade.id_unidade.nome_unidade }}</p>
+</div>
+
+{% if receitas %}
+    {% for receita in receitas %}
+    <div class="receita-item">
+        <div class="receita-header-row">
+            <strong class="receita-title">Receita Médica #{{ forloop.counter }}</strong>
+            <small class="receita-date">
+                Prescrita em: {{ receita.data_prescricao|date:"d/m/Y" }}
+            </small>
+        </div>
+        
+        {% if receita.medicamento %}
+        <div class="receita-section">
+            <strong class="section-title">Medicamento(s):</strong>
+            <div class="medicamento-content">
+                {{ receita.medicamento|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if receita.dosagem %}
+        <div class="receita-section">
+            <strong class="section-title">Dosagem:</strong>
+            <div class="dosagem-content">
+                {{ receita.dosagem }}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if receita.instrucoes %}
+        <div class="receita-section">
+            <strong class="section-title">Instruções:</strong>
+            <div class="instrucoes-content">
+                {{ receita.instrucoes|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if receita.data_validade %}
+        <div class="receita-section">
+            <strong class="section-title">Validade:</strong> 
+            <span class="validade-text {% if receita.data_validade < now %}validade-expirada{% else %}validade-valida{% endif %}">
+                {{ receita.data_validade|date:"d/m/Y" }}
+            </span>
+            {% if receita.data_validade < now %}
+            <span class="expirada-label">(Expirada)</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if receita.observacoes %}
+        <div class="receita-section">
+            <strong class="section-title">Observações:</strong>
+            <div class="observacoes-content">
+                {{ receita.observacoes|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="sem-receitas">
+        <div class="sem-receitas-icon">📝</div>
+        <p class="sem-receitas-title">Não foram encontradas receitas para esta consulta</p>
+        <p>O médico não prescreveu nenhuma receita durante esta consulta.</p>
+    </div>
+{% endif %}
+
+<div class="receita-buttons">
+    <button onclick="window.imprimirReceita()" class="btn-imprimir">
+        🖨️ Imprimir
+    </button>
+    <button onclick="fecharModal()" class="btn-fechar">
+        Fechar
+    </button>
+</div>
+
+<style>
+    .receita-header {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #4CAF50;
+    }
+    
+    .receita-header p {
+        margin: 5px 0;
+    }
+    
+    .receita-item {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #eaeaea;
+    }
+    
+    .receita-item:last-child {
+        border-bottom: none;
+    }
+    
+    .receita-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .receita-title {
+        color: #4CAF50;
+        font-size: 1.1em;
+    }
+    
+    .receita-date {
+        color: #666;
+        font-style: italic;
+        font-size: 0.9em;
+    }
+    
+    .receita-section {
+        margin-bottom: 15px;
+    }
+    
+    .section-title {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 600;
+    }
+    
+    .medicamento-content {
+        background-color: #f8f9fa;
+        padding: 12px;
+        border-radius: 4px;
+        white-space: pre-line;
+        font-family: 'Courier New', monospace;
+        line-height: 1.5;
+    }
+    
+    .dosagem-content {
+        padding: 10px 12px;
+        background-color: #e9f7fe;
+        border-radius: 4px;
+        border-left: 3px solid #2196F3;
+        line-height: 1.5;
+    }
+    
+    .instrucoes-content {
+        padding: 10px 12px;
+        background-color: #f0f9f0;
+        border-radius: 4px;
+        border-left: 3px solid #4CAF50;
+        line-height: 1.5;
+    }
+    
+    .validade-text {
+        font-weight: bold;
+        margin-left: 5px;
+    }
+    
+    .validade-valida {
+        color: #28a745;
+    }
+    
+    .validade-expirada {
+        color: #dc3545;
+    }
+    
+    .expirada-label {
+        color: #dc3545;
+        margin-left: 10px;
+        font-size: 0.9em;
+    }
+    
+    .observacoes-content {
+        padding: 10px 12px;
+        background-color: #fff8e1;
+        border-radius: 4px;
+        border-left: 3px solid #ffc107;
+        font-size: 0.9em;
+        line-height: 1.5;
+    }
+    
+    .sem-receitas {
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+    }
+    
+    .sem-receitas-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+    
+    .sem-receitas-title {
+        font-size: 1.2em;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    
+    .receita-buttons {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .btn-imprimir {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+        font-size: 1em;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-imprimir:hover {
+        background-color: #0056b3;
+    }
+    
+    .btn-fechar {
+        padding: 10px 20px;
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-fechar:hover {
+        background-color: #545b62;
+    }
+</style>

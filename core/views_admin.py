@@ -11,7 +11,9 @@ from .models import (
     Enfermeiro, Paciente, Consulta, Fatura, Disponibilidade
 )
 from .decorators import role_required
-
+from django.http import HttpResponse, JsonResponse
+import csv
+import json
 
 @login_required
 @role_required('admin')
@@ -704,6 +706,7 @@ def admin_fatura_editar(request, fatura_id):
 
 # ==================== RELATÓRIOS ====================
 
+
 @login_required
 @role_required('admin')
 def admin_relatorios(request):
@@ -711,7 +714,6 @@ def admin_relatorios(request):
     hoje = timezone.now().date()
     inicio_mes = hoje.replace(day=1)
     
-    # Período personalizado
     data_inicio = request.GET.get('data_inicio', inicio_mes.isoformat())
     data_fim = request.GET.get('data_fim', hoje.isoformat())
     
@@ -722,26 +724,22 @@ def admin_relatorios(request):
         data_inicio = inicio_mes
         data_fim = hoje
     
-    # Consultas por estado
     consultas_por_estado = Consulta.objects.filter(
         data_consulta__range=[data_inicio, data_fim]
     ).values('estado').annotate(total=Count('id_consulta')).order_by('-total')
     
-    # Consultas por médico
     consultas_por_medico = Consulta.objects.filter(
         data_consulta__range=[data_inicio, data_fim]
     ).values('id_medico__id_utilizador__nome').annotate(
         total=Count('id_consulta')
     ).order_by('-total')[:10]
     
-    # Consultas por especialidade
     consultas_por_especialidade = Consulta.objects.filter(
         data_consulta__range=[data_inicio, data_fim]
     ).values('id_medico__id_especialidade__nome_especialidade').annotate(
         total=Count('id_consulta')
     ).order_by('-total')
-    
-    # Receitas financeiras
+
     receitas = Fatura.objects.filter(
         estado='paga',
         data_pagamento__range=[data_inicio, data_fim]
@@ -753,10 +751,295 @@ def admin_relatorios(request):
     context = {
         'data_inicio': data_inicio,
         'data_fim': data_fim,
-        'consultas_por_estado': consultas_por_estado,
-        'consultas_por_medico': consultas_por_medico,
-        'consultas_por_especialidade': consultas_por_especialidade,
+        'consultas_por_estado': list(consultas_por_estado),
+        'consultas_por_medico': list(consultas_por_medico),
+        'consultas_por_especialidade': list(consultas_por_especialidade),
         'receitas': receitas,
     }
     
     return render(request, 'admin/relatorios.html', context)
+
+@login_required
+@role_required('admin')
+def relatorio_financeiro_csv(request):
+    """Relatório financeiro em CSV"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="relatorio_financeiro.csv"'
+    
+    writer = csv.writer(response, delimiter=';') 
+    writer.writerow([
+        'ID Fatura', 
+        'Data Emissão', 
+        'Data Pagamento', 
+        'Valor Total (€)', 
+        'Estado', 
+        'Método Pagamento', 
+        'ID Consulta',
+        'Paciente', 
+        'Médico', 
+        'Especialidade',
+        'Data Consulta',
+        'Hora Consulta'
+    ])
+
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    estado = request.GET.get('estado')
+    
+    faturas = Fatura.objects.select_related(
+        'id_consulta__id_paciente__id_utilizador',
+        'id_consulta__id_medico__id_utilizador',
+        'id_consulta__id_medico__id_especialidade'
+    ).all().order_by('-id_fatura')
+    
+    if data_inicio:
+        faturas = faturas.filter(data_pagamento__gte=data_inicio)
+    if data_fim:
+        faturas = faturas.filter(data_pagamento__lte=data_fim)
+    if estado:
+        faturas = faturas.filter(estado=estado)
+    
+    for fatura in faturas:
+        consulta = fatura.id_consulta
+        writer.writerow([
+            fatura.id_fatura,
+            fatura.data_pagamento.strftime('%d/%m/%Y') if fatura.data_pagamento else '',
+            fatura.data_pagamento.strftime('%d/%m/%Y') if fatura.data_pagamento else 'Pendente',
+            f"{fatura.valor:.2f}".replace('.', ','),  # Formato europeu
+            fatura.estado,
+            fatura.metodo_pagamento or 'N/A',
+            consulta.id_consulta,
+            consulta.id_paciente.id_utilizador.nome,
+            consulta.id_medico.id_utilizador.nome,
+            consulta.id_medico.id_especialidade.nome_especialidade if consulta.id_medico.id_especialidade else 'N/A',
+            consulta.data_consulta.strftime('%d/%m/%Y') if consulta.data_consulta else '',
+            consulta.hora_consulta.strftime('%H:%M') if consulta.hora_consulta else ''
+        ])
+    
+    return response
+
+@login_required
+@role_required('admin')
+def relatorio_financeiro_json(request):
+    """Relatório financeiro em JSON com estatísticas"""
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    estado = request.GET.get('estado')
+    
+    faturas_qs = Fatura.objects.select_related(
+        'id_consulta__id_paciente__id_utilizador',
+        'id_consulta__id_medico__id_utilizador',
+        'id_consulta__id_medico__id_especialidade'
+    ).all()
+    
+    if data_inicio:
+        faturas_qs = faturas_qs.filter(data_pagamento__gte=data_inicio)
+    if data_fim:
+        faturas_qs = faturas_qs.filter(data_pagamento__lte=data_fim)
+    if estado:
+        faturas_qs = faturas_qs.filter(estado=estado)
+    
+    total_faturas = faturas_qs.count()
+    valor_total = faturas_qs.aggregate(Sum('valor'))['valor__sum'] or 0
+    
+    faturas_por_estado = faturas_qs.values('estado').annotate(
+        count=Count('id_fatura'),
+        total=Sum('valor')
+    )
+    
+    faturas_detalhes = []
+    for fatura in faturas_qs.order_by('-id_fatura')[:100]:  # Limitar a 100 registros
+        consulta = fatura.id_consulta
+        faturas_detalhes.append({
+            'id_fatura': fatura.id_fatura,
+            'data_pagamento': fatura.data_pagamento.strftime('%Y-%m-%d') if fatura.data_pagamento else None,
+            'valor': float(fatura.valor),
+            'estado': fatura.estado,
+            'metodo_pagamento': fatura.metodo_pagamento,
+            'consulta': {
+                'id_consulta': consulta.id_consulta,
+                'data_consulta': consulta.data_consulta.strftime('%Y-%m-%d') if consulta.data_consulta else None,
+                'hora_consulta': consulta.hora_consulta.strftime('%H:%M') if consulta.hora_consulta else None,
+                'paciente': {
+                    'id': consulta.id_paciente.id_paciente,
+                    'nome': consulta.id_paciente.id_utilizador.nome,
+                    'n_utente': consulta.id_paciente.id_utilizador.n_utente
+                },
+                'medico': {
+                    'id': consulta.id_medico.id_medico,
+                    'nome': consulta.id_medico.id_utilizador.nome,
+                    'especialidade': consulta.id_medico.id_especialidade.nome_especialidade if consulta.id_medico.id_especialidade else None
+                }
+            }
+        })
+    
+    resposta = {
+        'periodo': {
+            'data_inicio': data_inicio,
+            'data_fim': data_fim
+        },
+        'estatisticas': {
+            'total_faturas': total_faturas,
+            'valor_total': float(valor_total),
+            'valor_medio': float(valor_total / total_faturas) if total_faturas > 0 else 0
+        },
+        'resumo_por_estado': [
+            {
+                'estado': item['estado'],
+                'quantidade': item['count'],
+                'valor_total': float(item['total']) if item['total'] else 0
+            }
+            for item in faturas_por_estado
+        ],
+        'faturas': faturas_detalhes
+    }
+    
+    return JsonResponse(resposta, safe=False, json_dumps_params={'indent': 2})
+
+@login_required
+@role_required('admin')
+def relatorio_consultas_csv(request):
+    """Relatório de consultas em CSV"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="relatorio_consultas.csv"'
+    
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow([
+        'ID Consulta',
+        'Data',
+        'Hora',
+        'Paciente',
+        'Médico',
+        'Especialidade',
+        'Estado',
+        'Motivo',
+        'Valor (€)',
+        'Fatura ID',
+        'Data Criação'
+    ])
+    
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    estado = request.GET.get('estado')
+    medico_id = request.GET.get('medico_id')
+    
+    consultas = Consulta.objects.select_related(
+        'id_paciente__id_utilizador',
+        'id_medico__id_utilizador',
+        'id_medico__id_especialidade'
+    ).all().order_by('-data_consulta')
+    
+    if data_inicio:
+        consultas = consultas.filter(data_consulta__gte=data_inicio)
+    if data_fim:
+        consultas = consultas.filter(data_consulta__lte=data_fim)
+    if estado:
+        consultas = consultas.filter(estado=estado)
+    if medico_id:
+        consultas = consultas.filter(id_medico__id_medico=medico_id)
+    
+    for consulta in consultas:
+        try:
+            fatura = Fatura.objects.get(id_consulta=consulta)
+            valor = fatura.valor
+            fatura_id = fatura.id_fatura
+        except Fatura.DoesNotExist:
+            valor = 0
+            fatura_id = 'N/A'
+        
+        writer.writerow([
+            consulta.id_consulta,
+            consulta.data_consulta.strftime('%d/%m/%Y') if consulta.data_consulta else '',
+            consulta.hora_consulta.strftime('%H:%M') if consulta.hora_consulta else '',
+            consulta.id_paciente.id_utilizador.nome,
+            consulta.id_medico.id_utilizador.nome,
+            consulta.id_medico.id_especialidade.nome_especialidade if consulta.id_medico.id_especialidade else 'N/A',
+            consulta.estado,
+            consulta.motivo or '',
+            f"{valor:.2f}".replace('.', ','),
+            fatura_id,
+            consulta.criado_em.strftime('%d/%m/%Y %H:%M') if consulta.criado_em else ''
+        ])
+    
+    return response
+
+@login_required
+@role_required('admin')
+def relatorio_consultas_json(request):
+    """Relatório de consultas em JSON"""
+    # Filtros
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    estado = request.GET.get('estado')
+    medico_id = request.GET.get('medico_id')
+    
+    consultas_qs = Consulta.objects.select_related(
+        'id_paciente__id_utilizador',
+        'id_medico__id_utilizador',
+        'id_medico__id_especialidade'
+    ).all()
+    
+    if data_inicio:
+        consultas_qs = consultas_qs.filter(data_consulta__gte=data_inicio)
+    if data_fim:
+        consultas_qs = consultas_qs.filter(data_consulta__lte=data_fim)
+    if estado:
+        consultas_qs = consultas_qs.filter(estado=estado)
+    if medico_id:
+        consultas_qs = consultas_qs.filter(id_medico__id_medico=medico_id)
+    
+    total_consultas = consultas_qs.count()
+    consultas_por_estado = consultas_qs.values('estado').annotate(
+        count=Count('id_consulta')
+    )
+    
+    consultas_por_medico = consultas_qs.values(
+        'id_medico__id_utilizador__nome'
+    ).annotate(
+        count=Count('id_consulta')
+    ).order_by('-count')[:10]
+    
+    consultas_detalhes = []
+    for consulta in consultas_qs.order_by('-data_consulta')[:100]:
+        try:
+            fatura = Fatura.objects.get(id_consulta=consulta)
+            fatura_info = {
+                'id': fatura.id_fatura,
+                'valor': float(fatura.valor),
+                'estado': fatura.estado
+            }
+        except Fatura.DoesNotExist:
+            fatura_info = None
+        
+        consultas_detalhes.append({
+            'id_consulta': consulta.id_consulta,
+            'data_consulta': consulta.data_consulta.strftime('%Y-%m-%d') if consulta.data_consulta else None,
+            'hora_consulta': consulta.hora_consulta.strftime('%H:%M') if consulta.hora_consulta else None,
+            'estado': consulta.estado,
+            'motivo': consulta.motivo,
+            'paciente': {
+                'id': consulta.id_paciente.id_paciente,
+                'nome': consulta.id_paciente.id_utilizador.nome
+            },
+            'medico': {
+                'id': consulta.id_medico.id_medico,
+                'nome': consulta.id_medico.id_utilizador.nome,
+                'especialidade': consulta.id_medico.id_especialidade.nome_especialidade if consulta.id_medico.id_especialidade else None
+            },
+            'fatura': fatura_info
+        })
+    
+    resposta = {
+        'periodo': {
+            'data_inicio': data_inicio,
+            'data_fim': data_fim
+        },
+        'estatisticas': {
+            'total_consultas': total_consultas,
+            'por_estado': list(consultas_por_estado),
+            'top_medicos': list(consultas_por_medico)
+        },
+        'consultas': consultas_detalhes
+    }
+    
+    return JsonResponse(resposta, safe=False, json_dumps_params={'indent': 2})

@@ -4,13 +4,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minhas Consultas - MediPulse</title>
+    <title>As Minhas Consultas - MediPulse</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=2">
+    <style>
+        .receita-badge {
+            background-color: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 5px;
+            display: inline-block;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .receita-badge:hover {
+            background-color: #45a049;
+        }
+        
+        .receita-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .receita-modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 20px;
+            top: 10px;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .receita-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .receita-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .receita-item:last-child {
+            border-bottom: none;
+        }
+        
+        .alert {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error, .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .badge.agendada {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge.confirmada {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge.realizada {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge.cancelada {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Minhas Consultas</h1>
+            <h1>📋 As Minhas Consultas</h1>
             <div class="user-info">
                 <span>{{ request.user.nome }}</span>
                 <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
@@ -20,12 +150,23 @@
         <div class="nav-menu">
             <a href="{% url 'patient_home' %}">🏠 Home</a>
             <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
-            <a href="{% url 'listar_consultas' %}" class="active">🏥 Minhas Consultas</a>
+            <a href="{% url 'listar_consultas' %}" class="active">🏥 As Minhas Consultas</a>
             <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
         </div>
 
         <div class="content-section">
             <h2>Histórico de Consultas</h2>
+            
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
             {% if consultas and consultas|length > 0 %}
             <table>
                 <thead>
@@ -36,6 +177,7 @@
                         <th>Médico</th>
                         <th>Unidade</th>
                         <th>Estado</th>
+                        <th>Receitas</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -47,12 +189,34 @@
                         <td>{{ c.hora_consulta }}</td>
                         <td>{{ c.id_medico.id_utilizador.nome }}</td>
                         <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
-                        <td><span class="badge {{ c.estado|lower }}">{{ c.estado|capfirst }}</span></td>
+                        <td>
+                            {% if c.estado == 'realizada' %}
+                                <span class="badge realizada">Realizada</span>
+                            {% elif c.estado == 'cancelada' %}
+                                <span class="badge cancelada">Cancelada</span>
+                            {% elif c.estado == 'confirmada' %}
+                                <span class="badge confirmada">Confirmada</span>
+                            {% elif c.estado == 'agendada' %}
+                                <span class="badge agendada">Agendada</span>
+                            {% else %}
+                                <span class="badge {{ c.estado|lower }}">{{ c.estado|capfirst }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.tem_receita %}
+                                <span class="receita-badge" 
+                                      data-consulta-id="{{ c.id_consulta }}">
+                                    📋 Ver Receita
+                                </span>
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if c.estado|lower == 'agendada' %}
                                 {% if c.paciente_aceitou %}
                                     <span style="color:#28a745; font-weight:bold">✅ Já aceitaste</span>
-                                    <br><small style="color:#666">Aguardando médico...</small>
+                                    <br><small style="color:#666">A aguardar médico...</small>
                                 {% else %}
                                     <a href="{% url 'paciente_confirmar_consulta' c.id_consulta %}" class="btn btn-success btn-sm" onclick="return confirm('Deseja aceitar esta consulta?')">✅ Aceitar</a>
                                     <a href="{% url 'paciente_recusar_consulta' c.id_consulta %}" class="btn btn-danger btn-sm" onclick="return confirm('Deseja recusar esta consulta?')">❌ Recusar</a>
@@ -61,12 +225,12 @@
                                 {% if c.can_cancel_24h %}
                                     <a href="{% url 'paciente_cancelar_consulta' c.id_consulta %}" class="btn btn-danger btn-sm" onclick="return confirm('Tem a certeza que deseja cancelar esta consulta?')">Cancelar</a>
                                 {% else %}
-                                    <span style="color:#999">-</span>
+                                    <span style="color:#999;">-</span>
                                 {% endif %}
                             {% elif c.estado|lower == 'cancelada' %}
-                                <span style="color:#999">-</span>
+                                <span style="color:#999;">-</span>
                             {% else %}
-                                <span style="color:#999">-</span>
+                                <span style="color:#999;">-</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -78,5 +242,113 @@
             {% endif %}
         </div>
     </div>
+
+    <div id="receitaModal" class="receita-modal">
+        <div class="receita-modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>📋 Receita Médica</h3>
+            <div id="receitaContent">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const closeModalBtn = document.querySelector('.close-modal');
+            closeModalBtn.addEventListener('click', fecharModal);
+            
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('receitaModal');
+                if (event.target === modal) {
+                    fecharModal();
+                }
+            });
+            
+            const receitaBadges = document.querySelectorAll('.receita-badge');
+            
+            receitaBadges.forEach(badge => {
+                badge.addEventListener('click', function() {
+                    const consultaId = this.getAttribute('data-consulta-id');
+                    mostrarReceitas(consultaId);
+                });
+            });
+        });
+
+        function mostrarReceitas(consultaId) {
+            const modal = document.getElementById('receitaModal');
+            modal.style.display = 'block';
+            
+            document.getElementById('receitaContent').innerHTML = 
+                '<div style="text-align: center; padding: 20px;">Carregando receitas...</div>';
+            
+            fetch(`/paciente/receitas/${consultaId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erro HTTP: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('receitaContent').innerHTML = data;
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar receitas:', error);
+                    document.getElementById('receitaContent').innerHTML = 
+                        `<div style="color: #721c24; background-color: #f8d7da; padding: 15px; border-radius: 4px;">
+                            <p><strong>Erro ao carregar receitas</strong></p>
+                            <p>Por favor, tente novamente mais tarde ou contacte o suporte.</p>
+                            <small>${error.message}</small>
+                        </div>`;
+                });
+        }
+        
+        function fecharModal() {
+            document.getElementById('receitaModal').style.display = 'none';
+            document.getElementById('receitaContent').innerHTML = '';
+        }
+        
+        // Função para imprimir receita 
+        window.imprimirReceita = function() {
+            const printContent = document.getElementById('receitaContent').innerHTML;
+            const originalContent = document.body.innerHTML;
+            
+            document.body.innerHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Receita Médica - MediPulse</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .receita-item { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #ccc; }
+                        .receita-header { background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+                        @media print {
+                            body { margin: 0; padding: 10px; }
+                            .no-print { display: none !important; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="receita-header">
+                        <h2>📋 Receita Médica - MediPulse</h2>
+                        <p><small>Impresso em: ${new Date().toLocaleDateString('pt-PT')}</small></p>
+                    </div>
+                    ${printContent}
+                    <div class="no-print" style="margin-top: 30px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            🖨️ Imprimir
+                        </button>
+                        <button onclick="window.close()" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer;">
+                            Fechar
+                        </button>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            window.print();
+            document.body.innerHTML = originalContent;
+            window.location.reload();
+        };
+    </script>
 </body>
 </html>

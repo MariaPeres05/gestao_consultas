@@ -14,6 +14,7 @@ from .models import (
     UnidadeSaude,
     Medico,
     Disponibilidade,
+    Receita, 
 )
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -60,7 +61,6 @@ def register_view(request):
                 nome=form.cleaned_data["nome"],
                 email=form.cleaned_data["email"],
                 telefone=form.cleaned_data["telefone"],
-                n_utente=form.cleaned_data["n_utente"],
                 senha=form.cleaned_data["password"],
                 role=Utilizador.ROLE_PACIENTE,
                 ativo=True,
@@ -387,10 +387,10 @@ def listar_consultas(request):
     consultas = (
         Consulta.objects.filter(id_paciente=paciente)
         .select_related("id_medico__id_utilizador", "id_disponibilidade__id_unidade")
+        .prefetch_related('receitas') 
         .order_by("-data_consulta", "hora_consulta")
     )
     
-    # Adicionar propriedade can_cancel_24h a cada consulta
     from datetime import datetime, timedelta
     from django.utils import timezone
     
@@ -401,10 +401,37 @@ def listar_consultas(request):
         consulta_datetime = timezone.make_aware(consulta_datetime)
         tempo_restante = consulta_datetime - timezone.now()
         consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
+        
+        # Verificar se a consulta já passou (para fins de exibição)
+        # Consultas no passado só devem mostrar "realizada" se foram realmente marcadas como tal
+        # Se ainda não foram marcadas como realizadas mas já passaram, deixar no estado anterior
+        if consulta_datetime < timezone.now() and consulta.estado != 'realizada':
+            # Se já passou mas ainda não foi registada como realizada
+            # não muda o estado, apenas mostra como estava
+            pass
+        
+        consulta.tem_receita = consulta.receitas.exists()
 
     context = {"consultas": consultas, "paciente": paciente}
     return render(request, "core/patient_consultas.html", context)
 
+@login_required
+@role_required('paciente')
+def paciente_receitas(request, consulta_id):
+    """Mostra as receitas associadas a uma consulta específica do paciente"""
+    paciente = Paciente.objects.filter(id_utilizador=request.user).first()
+    if not paciente:
+        return redirect('patient_home')
+    
+    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_paciente=paciente)
+    receitas = Receita.objects.filter(id_consulta=consulta).order_by('data_prescricao')
+    
+    context = {
+        'consulta': consulta,
+        'receitas': receitas,
+    }
+    
+    return render(request, 'core/patient_receitas.html', context)
 
 @login_required
 @role_required('paciente')
@@ -422,7 +449,7 @@ def paciente_confirmar_consulta(request, consulta_id):
             messages.success(request, "Consulta confirmada com sucesso!")
         else:
             # Senão, mantém como agendada esperando aceitação do médico
-            messages.success(request, "Aceitaste a consulta. Aguardando aceitação do médico.")
+            messages.success(request, "Aceitaste a consulta. A aguardar aceitação do médico.")
         
         consulta.save()
     else:

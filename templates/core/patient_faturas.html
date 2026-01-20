@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minhas Faturas - MediPulse</title>
+    <title>As Minhas Faturas - MediPulse</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 Minhas Faturas</h1>
+            <h1>💰 As Minhas Faturas</h1>
             <div class="user-info">
                 <span>{{ request.user.nome }}</span>
                 <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
@@ -20,7 +20,7 @@
         <div class="nav-menu">
             <a href="{% url 'patient_home' %}">🏠 Home</a>
             <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
-            <a href="{% url 'listar_consultas' %}">🏥 Minhas Consultas</a>
+            <a href="{% url 'listar_consultas' %}">🏥 As Minhas Consultas</a>
             <a href="{% url 'listar_faturas' %}" class="active">💰 Faturas</a>
         </div>
 

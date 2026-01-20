@@ -14,9 +14,14 @@
         .nav-menu { background: white; padding: 15px; border-radius: 10px; margin-bottom: 30px; }
         .nav-menu a { display: inline-block; padding: 10px 20px; margin: 5px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; }
         .content { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; background: #667eea; color: white; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
         .filters { margin-bottom: 30px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
         .filters input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
+        .filters select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
+        .export-buttons { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .stat-box { background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center; }
         .stat-box h4 { color: #666; font-size: 14px; margin-bottom: 10px; }
@@ -53,9 +58,31 @@
                     <input type="date" name="data_inicio" value="{{ data_inicio|date:'Y-m-d' }}">
                     até
                     <input type="date" name="data_fim" value="{{ data_fim|date:'Y-m-d' }}">
-                    <button type="submit" class="btn">Filtrar</button>
+                    <select name="estado">
+                        <option value="">Todos os estados</option>
+                        <option value="agendada" {% if request.GET.estado == 'agendada' %}selected{% endif %}>Agendada</option>
+                        <option value="confirmada" {% if request.GET.estado == 'confirmada' %}selected{% endif %}>Confirmada</option>
+                        <option value="realizada" {% if request.GET.estado == 'realizada' %}selected{% endif %}>Realizada</option>
+                        <option value="cancelada" {% if request.GET.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
                 </label>
             </form>
+
+            <div class="export-buttons">
+                <a href="{% url 'relatorio_financeiro_csv' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                    📄 Download CSV Financeiro
+                </a>
+                <a href="{% url 'relatorio_financeiro_json' %}?{{ request.GET.urlencode }}" class="btn btn-info" target="_blank">
+                    🔗 Ver JSON Financeiro
+                </a>
+                <a href="{% url 'relatorio_consultas_csv' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                    📄 Download CSV Consultas
+                </a>
+                <a href="{% url 'relatorio_consultas_json' %}?{{ request.GET.urlencode }}" class="btn btn-info" target="_blank">
+                    🔗 Ver JSON Consultas
+                </a>
+            </div>
 
             <div class="stats-grid">
                 <div class="stat-box">

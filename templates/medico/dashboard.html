@@ -85,7 +85,7 @@
                             {% if consulta.estado == 'agendada' %}
                                 {% if consulta.medico_aceitou %}
                                     <span style="color:#28a745; font-weight:bold">✅ Já confirmaste</span>
-                                    <br><small style="color:#666">Aguardando paciente...</small>
+                                    <br><small style="color:#666">A aguardar paciente...</small>
                                 {% else %}
                                     <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
                                 {% endif %}
@@ -140,7 +140,7 @@
                             {% if consulta.estado == 'agendada' %}
                                 {% if consulta.medico_aceitou %}
                                     <span style="color:#28a745; font-weight:bold">✅ Já confirmaste</span>
-                                    <br><small style="color:#666">Aguardando paciente...</small>
+                                    <br><small style="color:#666">A aguardar paciente...</small>
                                 {% else %}
                                     <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">Confirmar</a>
                                     <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">Recusar</a>

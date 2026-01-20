@@ -395,12 +395,13 @@ def medico_agenda(request):
         id_medico=medico,
         data__range=[data_inicial, data_final]
     ).order_by('data', 'hora_inicio')
-    
-    # Buscar TODAS disponibilidades futuras para o tab de gestão (próximos 90 dias)
+   
+   # Buscar disponibilidades futuras NÃO ocupadas (status diferente de 'booked')
     disponibilidades_futuras = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__gte=hoje
-    ).order_by('data', 'hora_inicio')[:100]  # Limit to 100 entries
+    Q(id_medico=medico),
+    Q(data__gte=hoje),
+    ~Q(status_slot__iexact='booked')  # Excluir slots já ocupados
+    ).order_by('data', 'hora_inicio')[:100]
     
     # Get all unidades for dropdown
     unidades = UnidadeSaude.objects.all().order_by('nome_unidade')
@@ -412,9 +413,10 @@ def medico_agenda(request):
     
     # Get future disponibilidades for scheduling (next 60 days)
     disponibilidades_agendar = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__gte=hoje
-    ).exclude(status_slot__iexact='booked').order_by('data', 'hora_inicio')[:50]
+    id_medico=medico,
+    data__gte=hoje,
+    status_slot__in=['disponivel', 'available']  # Apenas disponíveis
+    ).order_by('data', 'hora_inicio')[:50]
     
     context = {
         'medico': medico,
@@ -512,6 +514,33 @@ def medico_disponibilidade(request):
     
     return render(request, 'medico/disponibilidade.html', context)
 
+@login_required
+@role_required('medico')
+def medico_excluir_disponibilidade(request, disponibilidade_id):
+    """Excluir uma disponibilidade que não está ocupada"""
+    from core.models import UnidadeSaude
+    try:
+        medico = Medico.objects.get(id_utilizador=request.user)
+    except Medico.DoesNotExist:
+        messages.error(request, "Perfil de médico não encontrado.")
+        return redirect('index')
+    
+    try:
+        disponibilidade = Disponibilidade.objects.get(
+            id_disponibilidade=disponibilidade_id,
+            id_medico=medico
+        )
+        
+        if Consulta.objects.filter(id_disponibilidade=disponibilidade).exists():
+            messages.error(request, "Não é possível excluir uma disponibilidade que já tem consultas marcadas.")
+        else:
+            disponibilidade.delete()
+            messages.success(request, "Disponibilidade excluída com sucesso!")
+            
+    except Disponibilidade.DoesNotExist:
+        messages.error(request, "Disponibilidade não encontrada.")
+    
+    return redirect('medico_agenda')
 
 @login_required
 @role_required('medico')
@@ -529,7 +558,7 @@ def medico_confirmar_consulta(request, consulta_id):
             messages.success(request, f"Consulta com {consulta.id_paciente.id_utilizador.nome} confirmada!")
         else:
             # Senão, mantém como agendada esperando aceitação do paciente
-            messages.success(request, f"Aceitaste a consulta. Aguardando aceitação do paciente.")
+            messages.success(request, f"Aceitaste a consulta. A aguardar aceitação do paciente.")
         
         consulta.save()
     else:
@@ -639,10 +668,11 @@ def medico_registar_consulta(request, consulta_id):
         # Criar receita se houver prescrição
         if prescricao:
             Receita.objects.create(
-                consulta=consulta,
-                medicamentos=prescricao,
-                data_emissao=timezone.now(),
-                validade=timezone.now() + timedelta(days=30)
+                id_consulta=consulta,
+                medicamento=prescricao,
+                dosagem='Conforme prescrição',
+                instrucoes=diagnostico,
+                data_prescricao=timezone.now().date()
             )
             messages.success(request, "Consulta registada e receita emitida!")
         else:

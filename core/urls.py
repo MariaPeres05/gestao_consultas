@@ -18,6 +18,7 @@ urlpatterns = [
     path("paciente/consultas/<int:consulta_id>/reagendar/", views.reagendar_consulta, name="reagendar_consulta"),
     path("paciente/faturas/", views.listar_faturas, name="listar_faturas"),
     path("paciente/perfil/", views.patient_perfil_editar, name="patient_perfil_editar"),
+    path('paciente/receitas/<int:consulta_id>/', views.paciente_receitas, name='paciente_receitas'),
 
     # URLs do Médico
     path('medico/dashboard/', views_medico.medico_dashboard, name='medico_dashboard'),
@@ -31,6 +32,7 @@ urlpatterns = [
     path('medico/consulta/<int:consulta_id>/recusar/', views_medico.medico_recusar_consulta, name='medico_recusar_consulta'),
     path('medico/consulta/<int:consulta_id>/cancelar/', views_medico.medico_cancelar_consulta, name='medico_cancelar_consulta'),
     path('medico/consulta/<int:consulta_id>/registar/', views_medico.medico_registar_consulta, name='medico_registar_consulta'),
+    path('medico/excluir-disponibilidade/<int:disponibilidade_id>/', views_medico.medico_excluir_disponibilidade, name='medico_excluir_disponibilidade'),
     
     # URLs do Enfermeiro
     path('enfermeiro/dashboard/', views_enfermeiro.enfermeiro_dashboard, name='enfermeiro_dashboard'),
@@ -80,4 +82,9 @@ urlpatterns = [
     
     # Relatórios
     path('admin-panel/relatorios/', views_admin.admin_relatorios, name='admin_relatorios'),
+
+    path('admin-panel/relatorios/financeiro/csv/', views_admin.relatorio_financeiro_csv, name='relatorio_financeiro_csv'),
+    path('admin-panel/relatorios/financeiro/json/', views_admin.relatorio_financeiro_json, name='relatorio_financeiro_json'),
+    path('admin-panel/relatorios/consultas/csv/', views_admin.relatorio_consultas_csv, name='relatorio_consultas_csv'),
+    path('admin-panel/relatorios/consultas/json/', views_admin.relatorio_consultas_json, name='relatorio_consultas_json'),
 ]
