@@ -234,3 +234,65 @@ def enviar_lembretes_2h():
     
     logger.info(f"Tarefa enviar_lembretes_2h concluída. {emails_enviados} emails enviados.")
     return f"{emails_enviados} lembretes de 2h enviados"
+
+
+def enviar_email_verificacao(user, request):
+    """
+    Envia email de verificação para o utilizador com link de ativação.
+    Gera um token único e envia email em thread separada.
+    
+    Args:
+        user: Objeto Utilizador que precisa verificar o email
+        request: HttpRequest object para construir URL absoluto
+    """
+    import secrets
+    from django.urls import reverse
+    
+    try:
+        # Gerar token único de verificação
+        verification_token = secrets.token_urlsafe(32)
+        user.verification_token = verification_token
+        user.save(update_fields=['verification_token'])
+        
+        # Construir URL de verificação
+        verification_path = reverse('verify_email', kwargs={'token': verification_token})
+        verification_url = request.build_absolute_uri(verification_path)
+        
+        # Renderizar o template HTML
+        html_message = render_to_string('emails/verify_email.html', {
+            'user': user,
+            'verification_url': verification_url,
+        })
+        
+        subject = 'Verificar Email - MediPulse'
+        recipient_list = [user.email]
+        
+        # Enviar email em thread separada (non-blocking)
+        thread = threading.Thread(
+            target=_send_email_thread,
+            args=(subject, html_message, recipient_list)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        logger.info(f"Email de verificação enviado para {user.email}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Erro ao enviar email de verificação para {user.email}: {str(e)}")
+        return False
+
+
+def reenviar_email_verificacao(user, request):
+    """
+    Reenvia email de verificação para utilizadores que ainda não verificaram.
+    
+    Args:
+        user: Objeto Utilizador
+        request: HttpRequest object
+    """
+    if user.email_verified:
+        logger.warning(f"Tentativa de reenviar verificação para email já verificado: {user.email}")
+        return False
+    
+    return enviar_email_verificacao(user, request)

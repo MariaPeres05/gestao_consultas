@@ -124,6 +124,33 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'home'
 
+# MongoDB Configuration
+MONGO_DB_URI = config('MONGO_DB_URI', default='mongodb://localhost:27017/')
+MONGO_DB_NAME = config('MONGO_DB_NAME', default='gestao_consultas_notas_clinicas')
+MONGO_COLLECTION_NAME = config('MONGO_COLLECTION_NAME', default='notas_clinicas')
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'core.mongo_client': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 
 import sys
 

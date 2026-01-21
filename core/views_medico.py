@@ -6,6 +6,10 @@ from django.db.models import Q, Count
 from datetime import datetime, timedelta
 from .models import Medico, Consulta, Disponibilidade, Paciente, Receita
 from .decorators import role_required
+from .mongo_client import NotasClinicasService
+import logging
+
+logger = logging.getLogger(__name__)
 
 @login_required
 @role_required('medico')
@@ -232,13 +236,13 @@ def medico_agenda(request):
             from core.models import UnidadeSaude
             if not unidade_id:
                 messages.error(request, "Por favor, selecione uma unidade de saúde.")
-                return redirect('medico_disponibilidade')
+                return redirect('medico_agenda')
             
             try:
                 unidade = UnidadeSaude.objects.get(id_unidade=unidade_id)
             except UnidadeSaude.DoesNotExist:
                 messages.error(request, "Unidade de saúde não encontrada.")
-                return redirect('medico_disponibilidade')
+                return redirect('medico_agenda')
             
             status = 'disponivel' if disponivel else 'indisponivel'
             duracao = 30  # default slot duration
@@ -438,82 +442,6 @@ def medico_agenda(request):
     
     return render(request, 'medico/agenda.html', context)
 
-
-@login_required
-@role_required('medico')
-def medico_disponibilidade(request):
-    """Gerenciar horários de disponibilidade"""
-    from core.models import UnidadeSaude
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
-        messages.error(request, "Perfil de médico não encontrado.")
-        return redirect('index')
-    
-    if request.method == 'POST':
-        data = request.POST.get('data')
-        hora_inicio = request.POST.get('hora_inicio')
-        hora_fim = request.POST.get('hora_fim')
-        unidade_id = request.POST.get('unidade')
-        disponivel = request.POST.get('disponivel') == 'on'
-        motivo_indisponibilidade = request.POST.get('motivo_indisponibilidade', '')
-        
-        # Validate unidade selection
-        if not unidade_id:
-            messages.error(request, "Por favor, selecione uma unidade de saúde.")
-            return redirect('medico_disponibilidade')
-        
-        try:
-            unidade = UnidadeSaude.objects.get(id_unidade=unidade_id)
-        except UnidadeSaude.DoesNotExist:
-            messages.error(request, "Unidade de saúde não encontrada.")
-            return redirect('medico_disponibilidade')
-        
-        try:
-            # Verificar se já existe disponibilidade para essa data e unidade
-            disp, created = Disponibilidade.objects.get_or_create(
-                id_medico=medico,
-                id_unidade=unidade,
-                data=data,
-                hora_inicio=hora_inicio,
-                defaults={
-                    'hora_fim': hora_fim,
-                    'status_slot': 'disponivel' if disponivel else 'indisponivel',
-                    'duracao_slot': 30
-                }
-            )
-            
-            if not created:
-                disp.hora_fim = hora_fim
-                disp.status_slot = 'disponivel' if disponivel else 'indisponivel'
-                disp.save()
-                messages.success(request, "Disponibilidade atualizada com sucesso!")
-            else:
-                messages.success(request, "Disponibilidade criada com sucesso!")
-                
-        except Exception as e:
-            messages.error(request, f"Erro ao salvar disponibilidade: {str(e)}")
-        
-        return redirect('medico_disponibilidade')
-    
-    # Get all unidades for the dropdown
-    unidades = UnidadeSaude.objects.all().order_by('nome_unidade')
-    
-    # Listar disponibilidades futuras
-    disponibilidades = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__gte=timezone.now().date()
-    ).order_by('data', 'hora_inicio')
-    
-    context = {
-        'medico': medico,
-        'disponibilidades': disponibilidades,
-        'unidades': unidades,
-        'hoje': timezone.now().date(),
-    }
-    
-    return render(request, 'medico/disponibilidade.html', context)
-
 @login_required
 @role_required('medico')
 def medico_excluir_disponibilidade(request, disponibilidade_id):
@@ -621,6 +549,8 @@ def medico_cancelar_consulta(request, consulta_id):
 
 @login_required
 @role_required('medico')
+@login_required
+@role_required('medico')
 def medico_detalhes_consulta(request, consulta_id):
     """Ver detalhes da consulta e informações do paciente"""
     medico = Medico.objects.get(id_utilizador=request.user)
@@ -639,10 +569,19 @@ def medico_detalhes_consulta(request, consulta_id):
         estado='realizada'
     ).order_by('-data_consulta')[:10]
     
+    # Get notas clínicas from MongoDB if available
+    notas_clinicas_service = NotasClinicasService()
+    mongo_notes = notas_clinicas_service.get_note_by_consulta(consulta_id)
+    
+    # Get all patient notes from MongoDB
+    patient_history_notes = notas_clinicas_service.get_notes_by_patient(paciente.id_paciente, limit=10)
+    
     context = {
         'consulta': consulta,
         'paciente': paciente,
         'historico': historico,
+        'mongo_notes': mongo_notes,
+        'patient_history_notes': patient_history_notes,
     }
     
     return render(request, 'medico/detalhes_consulta.html', context)
@@ -651,37 +590,92 @@ def medico_detalhes_consulta(request, consulta_id):
 @login_required
 @role_required('medico')
 def medico_registar_consulta(request, consulta_id):
-    """Registar notas médicas e receitas após a consulta"""
+    """Registar notas médicas e receitas após a consulta - salva no MongoDB"""
     medico = Medico.objects.get(id_utilizador=request.user)
     consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_medico=medico)
     
     if request.method == 'POST':
-        notas_medicas = request.POST.get('notas_medicas', '')
-        diagnostico = request.POST.get('diagnostico', '')
-        prescricao = request.POST.get('prescricao', '')
+        # Collect all notas clínicas data
+        # Parse comma-separated values into arrays
+        sintomas_str = request.POST.get('sintomas', '')
+        sintomas = [s.strip() for s in sintomas_str.split(',') if s.strip()] if sintomas_str else []
         
-        # Atualizar consulta
-        consulta.notas_medicas = notas_medicas
+        prescricoes_str = request.POST.get('prescricoes', '')
+        prescricoes = [p.strip() for p in prescricoes_str.split('\n') if p.strip()] if prescricoes_str else []
+        
+        exames_str = request.POST.get('exames_solicitados', '')
+        exames = [e.strip() for e in exames_str.split(',') if e.strip()] if exames_str else []
+        
+        notes_data = {
+            'notas_clinicas': request.POST.get('notas_clinicas', ''),
+            'observacoes': request.POST.get('observacoes', ''),
+            'diagnostico': request.POST.get('diagnostico', ''),
+            'tratamento': request.POST.get('tratamento', ''),
+            'sintomas': sintomas,
+            'prescricoes': prescricoes,
+            'exames_solicitados': exames,
+            'seguimento': request.POST.get('seguimento', ''),
+            'exame_fisico': {
+                'pressao_arterial': request.POST.get('pressao_arterial', ''),
+                'temperatura': request.POST.get('temperatura', ''),
+                'frequencia_cardiaca': request.POST.get('frequencia_cardiaca', ''),
+                'peso': request.POST.get('peso', ''),
+                'altura': request.POST.get('altura', ''),
+            }
+        }
+        
+        # Save to MongoDB - update if exists, create if not
+        notas_clinicas_service = NotasClinicasService()
+        existing_note = notas_clinicas_service.get_note_by_consulta(consulta.id_consulta)
+        
+        if existing_note is not None:
+            # Update existing note
+            success = notas_clinicas_service.update_note(consulta.id_consulta, notes_data)
+            if success:
+                logger.info(f"Updated nota clínica for consulta {consulta.id_consulta}")
+            note_id = existing_note.get('_id')
+        else:
+            # Create new note
+            note_id = notas_clinicas_service.create_note(
+                consulta_id=consulta.id_consulta,
+                medico_id=medico.id_medico,
+                paciente_id=consulta.id_paciente.id_paciente,
+                notes_data=notes_data
+            )
+
+        
+        # Update consulta status in PostgreSQL (but don't store notes - they're in MongoDB)
         consulta.estado = 'realizada'
         consulta.save()
         
-        # Criar receita se houver prescrição
-        if prescricao:
-            Receita.objects.create(
-                id_consulta=consulta,
-                medicamento=prescricao,
-                dosagem='Conforme prescrição',
-                instrucoes=diagnostico,
-                data_prescricao=timezone.now().date()
-            )
-            messages.success(request, "Consulta registada e receita emitida!")
+        # Create receita if prescriptions exist
+        if notes_data['prescricoes']:
+            for prescricao in notes_data['prescricoes']:
+                if prescricao.strip():
+                    Receita.objects.create(
+                        id_consulta=consulta,
+                        medicamento=prescricao,
+                        dosagem='Conforme prescrição',
+                        instrucoes=notes_data['diagnostico'][:255],
+                        data_prescricao=timezone.now().date()
+                    )
+        
+        if note_id or success:
+            messages.success(request, "Consulta registada com sucesso! Notas clínicas salvas no MongoDB.")
         else:
-            messages.success(request, "Consulta registada com sucesso!")
+            messages.warning(request, "Consulta registada, mas houve um problema ao salvar as notas clínicas detalhadas.")
         
         return redirect('medico_dashboard')
     
+    # GET request - show form
+    # Load existing notes from MongoDB
+    notas_clinicas_service = NotasClinicasService()
+    mongo_notes = notas_clinicas_service.get_note_by_consulta(consulta_id)
+    
     context = {
         'consulta': consulta,
+        'mongo_notes': mongo_notes,
+        'existing_notes': mongo_notes,  # Keep both for compatibility
     }
     
     return render(request, 'medico/registar_consulta.html', context)
@@ -813,50 +807,3 @@ def medico_verificar_disponibilidade(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
-
-
-def medico_indisponibilidade(request):
-    """Registar férias/ausências"""
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
-        messages.error(request, "Perfil de médico não encontrado.")
-        return redirect('index')
-    
-    if request.method == 'POST':
-        data_inicio = request.POST.get('data_inicio')
-        data_fim = request.POST.get('data_fim')
-        motivo = request.POST.get('motivo', 'Férias')
-        
-        try:
-            # Criar indisponibilidades para cada dia do período
-            inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-            fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-            
-            dias_criados = 0
-            dia_atual = inicio
-            while dia_atual <= fim:
-                Disponibilidade.objects.update_or_create(
-                    id_medico=medico,
-                    data=dia_atual,
-                    defaults={
-                        'disponivel': False,
-                        'motivo_indisponibilidade': motivo,
-                        'hora_inicio': '00:00',
-                        'hora_fim': '23:59'
-                    }
-                )
-                dias_criados += 1
-                dia_atual += timedelta(days=1)
-            
-            messages.success(request, f"Indisponibilidade registada para {dias_criados} dia(s)!")
-            return redirect('medico_disponibilidade')
-            
-        except Exception as e:
-            messages.error(request, f"Erro ao registar indisponibilidade: {str(e)}")
-    
-    context = {
-        'medico': medico,
-    }
-    
-    return render(request, 'medico/indisponibilidade.html', context)

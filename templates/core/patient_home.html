@@ -25,7 +25,20 @@
             <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
             <a href="{% url 'listar_consultas' %}">🏥 As Minhas Consultas</a>
             <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'update_paciente_details' %}">👤 Meu Perfil</a>
         </div>
+
+        {% if not request.user.email_verified %}
+        <div class="alert warning" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 8px;">
+            <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Email não verificado</h4>
+            <p style="margin: 0 0 10px 0; color: #856404;">
+                Por favor, verifique o seu email para ativar todas as funcionalidades da sua conta.
+            </p>
+            <a href="{% url 'resend_verification' %}" class="btn btn-warning" style="background: #ffc107; color: #000; padding: 8px 16px; text-decoration: none; border-radius: 5px; display: inline-block; font-size: 14px;">
+                📧 Reenviar Email de Verificação
+            </a>
+        </div>
+        {% endif %}
 
         <div class="stats-grid">
             <div class="stat-card variant-teal">

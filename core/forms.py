@@ -23,6 +23,45 @@ class RegisterForm(forms.Form):
         return cleaned
 
 
+class PacienteDetailsForm(forms.Form):
+    """Form para paciente preencher/atualizar seus dados pessoais"""
+    GENERO_CHOICES = [
+        ('Masculino', 'Masculino'),
+        ('Feminino', 'Feminino'),
+        ('Outro', 'Outro'),
+        ('Não especificado', 'Prefiro não especificar'),
+    ]
+    
+    data_nasc = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label="Data de Nascimento"
+    )
+    genero = forms.ChoiceField(
+        choices=GENERO_CHOICES,
+        label="Género"
+    )
+    morada = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label="Morada"
+    )
+    alergias = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label="Alergias (opcional)",
+        help_text="Liste quaisquer alergias conhecidas"
+    )
+    observacoes = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label="Observações (opcional)",
+        help_text="Informações adicionais relevantes para o histórico médico"
+    )
+
+
 class HorarioForm(forms.Form):
     """Form para criar/editar horários recorrentes"""
     DIA_SEMANA_CHOICES = [

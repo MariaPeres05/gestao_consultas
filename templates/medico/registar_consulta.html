@@ -1,53 +1,166 @@
+{% extends 'base_medico.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registar Consulta - MediPulse</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}">
-</head>
-<body>
-    <div class="medico-header">
-        <div class="container">
-            <h1>📝 Registar Consulta</h1>
+
+{% block title %}Registar Consulta - MediPulse{% endblock %}
+
+{% block header_title %}📝 Registar Consulta{% endblock %}
+
+{% block content %}
+<div class="content">
+    <!-- Debug Info -->
+    {% if existing_notes %}
+    <div class="alert info" style="margin-bottom: 20px;">
+        <strong>✅ Notas Existentes Carregadas</strong><br>
+        <small>Dados anteriores foram carregados da base de dados.</small>
+    </div>
+    {% else %}
+    <div class="alert warning" style="margin-bottom: 20px;">
+        <strong>⚠️ Novo Registo</strong><br>
+        <small>Nenhuma nota anterior encontrada para esta consulta.</small>
+    </div>
+    {% endif %}
+
+    <!-- Patient Information Card -->
+    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 20px;">
+        <h3 style="color: white; margin-bottom: 15px;">👤 Informações do Paciente</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+            <div>
+                <strong>Paciente:</strong><br>
+                {{ consulta.id_paciente.id_utilizador.nome }}
+            </div>
+            <div>
+                <strong>Data da Consulta:</strong><br>
+                {{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta|time:"H:i" }}
+            </div>
+            <div>
+                <strong>Motivo:</strong><br>
+                {{ consulta.motivo|default:"Não especificado" }}
+            </div>
         </div>
     </div>
 
-    <div class="main-content">
-        <div class="info-box">
-            <p><strong>Paciente:</strong> {{ consulta.id_paciente.id_utilizador.nome }}</p>
-            <p><strong>Data:</strong> {{ consulta.data_consulta|date:"d/m/Y" }} {{ consulta.hora_consulta }}</p>
-            <p><strong>Motivo:</strong> {{ consulta.motivo_consulta }}</p>
+    <form method="post" style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        {% csrf_token %}
+        
+        <h3 style="color: #667eea; margin-bottom: 20px;">📋 Notas Clínicas</h3>
+        
+        <!-- Notas Clínicas -->
+        <div class="form-group">
+            <label for="notas_clinicas">Notas Clínicas *</label>
+            <textarea id="notas_clinicas" name="notas_clinicas" rows="6" required
+                      placeholder="História clínica, queixa principal, anamnese...">{{ existing_notes.notas_clinicas|default:"" }}</textarea>
+            <small>Resumo geral da consulta e observações clínicas</small>
         </div>
 
-        <div class="content">
-            <h2>📋 Informações da Consulta</h2>
-            <form method="post">
-                {% csrf_token %}
-                
-                <div class="form-group">
-                    <label for="diagnostico">Diagnóstico / Avaliação:</label>
-                    <textarea id="diagnostico" name="diagnostico" 
-                              placeholder="Descreva o diagnóstico ou avaliação realizada..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="notas_medicas">Notas Médicas:</label>
-                    <textarea id="notas_medicas" name="notas_medicas" required
-                              placeholder="Anamnese, exame físico, evolução, plano terapêutico..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="prescricao">Prescrição / Receita (opcional):</label>
-                    <textarea id="prescricao" name="prescricao"
-                              placeholder="Medicamentos prescritos, dosagem, duração do tratamento...&#10;&#10;Ex:&#10;- Paracetamol 500mg - 1 comprimido de 8/8h por 3 dias&#10;- Ibuprofeno 400mg - 1 comprimido de 12/12h se dor"></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">💾 Registar e Finalizar Consulta</button>
-                <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-secondary">← Voltar</a>
-            </form>
+        <!-- Symptoms -->
+        <div class="form-group">
+            <label for="sintomas">Sintomas Apresentados</label>
+            <input type="text" id="sintomas" name="sintomas" 
+                   placeholder="Ex: febre, tosse, dor de cabeça (separados por vírgula)"
+                   value="{{ existing_notes.sintomas|join:', '|default:'' }}">
+            <small>Liste os sintomas separados por vírgula</small>
         </div>
-    </div>
-</body>
-</html>
+
+        <h3 style="color: #667eea; margin: 30px 0 20px;">🩺 Exame Físico</h3>
+        
+        <!-- Physical Examination -->
+        <div class="form-row">
+            <div class="form-group">
+                <label for="pressao_arterial">Pressão Arterial</label>
+                <input type="text" id="pressao_arterial" name="pressao_arterial" 
+                       placeholder="Ex: 120/80 mmHg"
+                       value="{{ existing_notes.exame_fisico.pressao_arterial|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="temperatura">Temperatura</label>
+                <input type="text" id="temperatura" name="temperatura" 
+                       placeholder="Ex: 36.5°C"
+                       value="{{ existing_notes.exame_fisico.temperatura|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="frequencia_cardiaca">Frequência Cardíaca</label>
+                <input type="text" id="frequencia_cardiaca" name="frequencia_cardiaca" 
+                       placeholder="Ex: 75 bpm"
+                       value="{{ existing_notes.exame_fisico.frequencia_cardiaca|default:'' }}">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="peso">Peso (kg)</label>
+                <input type="text" id="peso" name="peso" 
+                       placeholder="Ex: 70"
+                       value="{{ existing_notes.exame_fisico.peso|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="altura">Altura (cm)</label>
+                <input type="text" id="altura" name="altura" 
+                       placeholder="Ex: 170"
+                       value="{{ existing_notes.exame_fisico.altura|default:'' }}">
+            </div>
+        </div>
+
+        <h3 style="color: #667eea; margin: 30px 0 20px;">🔬 Diagnóstico e Tratamento</h3>
+
+        <!-- Diagnosis -->
+        <div class="form-group">
+            <label for="diagnostico">Diagnóstico *</label>
+            <textarea id="diagnostico" name="diagnostico" rows="4" required
+                      placeholder="Diagnóstico médico, hipóteses diagnósticas, CID...">{{ existing_notes.diagnostico|default:"" }}</textarea>
+        </div>
+
+        <!-- Treatment -->
+        <div class="form-group">
+            <label for="tratamento">Plano de Tratamento</label>
+            <textarea id="tratamento" name="tratamento" rows="4"
+                      placeholder="Orientações, mudanças de estilo de vida, procedimentos recomendados...">{{ existing_notes.tratamento|default:"" }}</textarea>
+        </div>
+
+        <!-- Prescriptions -->
+        <div class="form-group">
+            <label for="prescricoes">Prescrições / Receitas</label>
+            <textarea id="prescricoes" name="prescricoes" rows="4"
+                      placeholder="Medicamentos prescritos (um por linha)&#10;Ex:&#10;Paracetamol 500mg - 1 comp. 8/8h por 3 dias&#10;Ibuprofeno 400mg - 1 comp. 12/12h se dor">{{ existing_notes.prescricoes|join:'&#10;'|default:"" }}</textarea>
+            <small>Liste cada medicamento em uma linha separada</small>
+        </div>
+
+        <!-- Requested Exams -->
+        <div class="form-group">
+            <label for="exames_solicitados">Exames Solicitados</label>
+            <input type="text" id="exames_solicitados" name="exames_solicitados"
+                   placeholder="Ex: Hemograma, Raio-X tórax, Glicemia (separados por vírgula)"
+                   value="{{ existing_notes.exames_solicitados|join:', '|default:'' }}">
+            <small>Liste os exames separados por vírgula</small>
+        </div>
+
+        <!-- Observations -->
+        <div class="form-group">
+            <label for="observacoes">Observações Adicionais</label>
+            <textarea id="observacoes" name="observacoes" rows="3"
+                      placeholder="Observações gerais, recomendações, alertas...">{{ existing_notes.observacoes|default:"" }}</textarea>
+        </div>
+
+        <!-- Follow-up -->
+        <div class="form-group">
+            <label for="seguimento">Seguimento / Retorno</label>
+            <input type="text" id="seguimento" name="seguimento"
+                   placeholder="Ex: Retorno em 7 dias, Acompanhamento semanal..."
+                   value="{{ existing_notes.seguimento|default:'' }}">
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <button type="submit" class="btn btn-primary btn-lg">💾 Salvar e Finalizar Consulta</button>
+            <a href="{% url 'medico_detalhes_consulta' consulta.id_consulta %}" class="btn btn-secondary">← Voltar</a>
+        </div>
+    </form>
+</div>
+
+<style>
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}

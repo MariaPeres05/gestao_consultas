@@ -1,0 +1,222 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - MediPulse</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>👤 Meu Perfil</h1>
+                <p>Atualize os seus dados pessoais</p>
+            </div>
+            <div class="user-info">
+                <a href="{% url 'patient_home' %}" class="btn-secondary">← Voltar</a>
+                <a href="{% url 'logout' %}" class="logout-btn">Sair</a>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="{% url 'patient_home' %}">🏠 Home</a>
+            <a href="{% url 'marcar_consulta' %}">📅 Agendar Consulta</a>
+            <a href="{% url 'listar_consultas' %}">🏥 As Minhas Consultas</a>
+            <a href="{% url 'listar_faturas' %}">💰 Faturas</a>
+            <a href="{% url 'update_paciente_details' %}" class="active">👤 Meu Perfil</a>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Dados Pessoais</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                Preencha os seus dados para que os médicos possam ter acesso ao seu historial completo.
+            </p>
+
+            <form method="post" class="form-horizontal">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="id_data_nasc">{{ form.data_nasc.label }}</label>
+                    {{ form.data_nasc }}
+                    {% if form.data_nasc.errors %}
+                        <div class="error-message">{{ form.data_nasc.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_genero">{{ form.genero.label }}</label>
+                    {{ form.genero }}
+                    {% if form.genero.errors %}
+                        <div class="error-message">{{ form.genero.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_morada">{{ form.morada.label }}</label>
+                    {{ form.morada }}
+                    {% if form.morada.errors %}
+                        <div class="error-message">{{ form.morada.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_alergias">{{ form.alergias.label }}</label>
+                    {{ form.alergias }}
+                    <small style="color: #666; font-size: 12px;">{{ form.alergias.help_text }}</small>
+                    {% if form.alergias.errors %}
+                        <div class="error-message">{{ form.alergias.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_observacoes">{{ form.observacoes.label }}</label>
+                    {{ form.observacoes }}
+                    <small style="color: #666; font-size: 12px;">{{ form.observacoes.help_text }}</small>
+                    {% if form.observacoes.errors %}
+                        <div class="error-message">{{ form.observacoes.errors }}</div>
+                    {% endif %}
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="error-message">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="form-actions" style="margin-top: 30px; display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary">💾 Guardar Alterações</button>
+                    <a href="{% url 'patient_home' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="card" style="margin-top: 20px; background: #f8f9fa;">
+            <h3>ℹ️ Informações da Conta</h3>
+            <div style="display: grid; gap: 10px; margin-top: 15px;">
+                <div>
+                    <strong>Nome:</strong> {{ request.user.nome }}
+                </div>
+                <div>
+                    <strong>Email:</strong> {{ request.user.email }}
+                    {% if request.user.email_verified %}
+                        <span style="color: green;">✓ Verificado</span>
+                    {% else %}
+                        <span style="color: orange;">⚠️ Não verificado</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <strong>Telefone:</strong> {{ request.user.telefone|default:"Não fornecido" }}
+                </div>
+                <div>
+                    <strong>Nº de Utente:</strong> {{ request.user.n_utente }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input[type="date"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .messages {
+            margin: 20px 0;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+    </style>
+</body>
+</html>

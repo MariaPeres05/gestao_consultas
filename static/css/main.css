@@ -648,32 +648,68 @@ tr:hover {
     100% { transform: rotate(360deg); }
 }
 
-/* Utility Classes */
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.text-left { text-align: left; }
+/* ============================================
+   Utility Classes - Reusable Styles
+   ============================================ */
 
-.mt-10 { margin-top: 10px; }
-.mt-20 { margin-top: 20px; }
-.mt-30 { margin-top: 30px; }
-.mb-10 { margin-bottom: 10px; }
-.mb-20 { margin-bottom: 20px; }
-.mb-30 { margin-bottom: 30px; }
+/* Display */
+.d-none { display: none !important; }
+.d-block { display: block !important; }
+.d-inline { display: inline !important; }
+.d-inline-block { display: inline-block !important; }
+.d-flex { display: flex !important; }
 
-.p-10 { padding: 10px; }
-.p-20 { padding: 20px; }
-.p-30 { padding: 30px; }
-
+/* Flexbox Utilities */
 .flex { display: flex; }
 .flex-between { display: flex; justify-content: space-between; }
 .flex-center { display: flex; justify-content: center; align-items: center; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-gap-5 { gap: 5px; }
 .flex-gap-10 { gap: 10px; }
 .flex-gap-20 { gap: 20px; }
+.justify-between { justify-content: space-between; }
+.align-center { align-items: center; }
+.align-start { align-items: start; }
 
-.d-none { display: none; }
-.d-block { display: block; }
-.d-inline { display: inline; }
-.d-inline-block { display: inline-block; }
+/* Text Alignment */
+.text-center { text-align: center !important; }
+.text-right { text-align: right !important; }
+.text-left { text-align: left !important; }
+
+/* Text Colors */
+.text-gray { color: var(--gray) !important; }
+.text-gray-light { color: var(--gray-light) !important; }
+.text-success { color: var(--success) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-primary { color: var(--primary) !important; }
+
+/* Margin Utilities */
+.m-0 { margin: 0 !important; }
+.mt-10 { margin-top: 10px !important; }
+.mt-15 { margin-top: 15px !important; }
+.mt-20 { margin-top: 20px !important; }
+.mt-30 { margin-top: 30px !important; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-10 { margin-bottom: 10px !important; }
+.mb-15 { margin-bottom: 15px !important; }
+.mb-20 { margin-bottom: 20px !important; }
+.mb-30 { margin-bottom: 30px !important; }
+
+/* Padding Utilities */
+.p-0 { padding: 0 !important; }
+.p-5 { padding: 5px !important; }
+.p-10 { padding: 10px !important; }
+.p-15 { padding: 15px !important; }
+.p-20 { padding: 20px !important; }
+.p-30 { padding: 30px !important; }
+.p-40 { padding: 40px !important; }
+
+/* Font Utilities */
+.fs-12 { font-size: 12px !important; }
+.fs-13 { font-size: 13px !important; }
+.fs-14 { font-size: 14px !important; }
+.fs-64 { font-size: 64px !important; }
+.fw-bold { font-weight: bold !important; }
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -1261,12 +1297,12 @@ tr:hover {
 
 /* Secondary Button */
 .btn-secondary {
-    background: #95a5a6;
+    background: var(--gray);
     color: white;
 }
 
 .btn-secondary:hover {
-    background: #7f8c8d;
+    background: var(--dark);
 }
 
 /* Print Styles */
@@ -1289,63 +1325,10 @@ tr:hover {
         padding: 0;
     }
 }
+
 /* ============================================
-   Utility Classes - Reusable Styles
+   Common Component Patterns
    ============================================ */
-
-/* Text Colors */
-.text-gray { color: var(--gray) !important; }
-.text-gray-light { color: var(--gray-light) !important; }
-.text-success { color: var(--success) !important; }
-.text-danger { color: var(--danger) !important; }
-.text-primary { color: var(--primary) !important; }
-
-/* Text Alignment */
-.text-center { text-align: center !important; }
-.text-left { text-align: left !important; }
-.text-right { text-align: right !important; }
-
-/* Spacing */
-.mt-10 { margin-top: 10px !important; }
-.mt-15 { margin-top: 15px !important; }
-.mt-20 { margin-top: 20px !important; }
-.mt-30 { margin-top: 30px !important; }
-.mb-10 { margin-bottom: 10px !important; }
-.mb-15 { margin-bottom: 15px !important; }
-.mb-20 { margin-bottom: 20px !important; }
-.mb-0 { margin-bottom: 0 !important; }
-.m-0 { margin: 0 !important; }
-.p-0 { padding: 0 !important; }
-
-/* Display */
-.d-inline { display: inline !important; }
-.d-inline-block { display: inline-block !important; }
-.d-block { display: block !important; }
-.d-none { display: none !important; }
-.d-flex { display: flex !important; }
-
-/* Flex Utilities */
-.flex-gap-5 { gap: 5px; }
-.flex-gap-10 { gap: 10px; }
-.flex-wrap { flex-wrap: wrap; }
-.justify-between { justify-content: space-between; }
-.align-center { align-items: center; }
-.align-start { align-items: start; }
-
-/* Font Sizes */
-.fs-12 { font-size: 12px !important; }
-.fs-13 { font-size: 13px !important; }
-.fs-14 { font-size: 14px !important; }
-.fw-bold { font-weight: bold !important; }
-
-/* Padding */
-.p-5 { padding: 5px !important; }
-.p-10 { padding: 10px !important; }
-.p-15 { padding: 15px !important; }
-.p-20 { padding: 20px !important; }
-.p-40 { padding: 40px !important; }
-
-/* Common Patterns */
 .empty-state {
     text-align: center;
     color: var(--gray-light);
@@ -1580,10 +1563,3 @@ tr:hover {
 .link-auto-margin {
     margin-left: auto;
 }
-
-/* Additional Size Utilities */
-.fs-64 { font-size: 64px !important; }
-.mb-15 { margin-bottom: 15px !important; }
-.mt-15 { margin-top: 15px !important; }
-.mt-30 { margin-top: 30px !important; }
-.m-0 { margin: 0 !important; }

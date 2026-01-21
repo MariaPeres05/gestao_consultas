@@ -1,123 +1,292 @@
+{% extends 'base_medico.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalhes da Consulta - MediPulse</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}">
-</head>
-<body>
-    <div class="medico-header">
-        <div class="container">
-            <h1>📋 Detalhes da Consulta</h1>
-            <div class="nav-links">
-                <a href="{% url 'medico_dashboard' %}">Dashboard</a>
-                <a href="{% url 'medico_agenda' %}">Agenda</a>
-                <a href="{% url 'home' %}">Voltar</a>
-            </div>
-        </div>
-    </div>
 
-    <div class="main-content">
-        <div class="content">
-            <h2>👤 Informações do Paciente</h2>
-            
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Nome Completo</label>
-                    <div class="value">{{ paciente.id_utilizador.nome }}</div>
-                </div>
-                <div class="info-item">
-                    <label>Email</label>
-                    <div class="value">{{ paciente.id_utilizador.email }}</div>
-                </div>
-                <div class="info-item">
-                    <label>Telefone</label>
-                    <div class="value">{{ paciente.id_utilizador.telefone|default:"Não informado" }}</div>
-                </div>
-                <div class="info-item">
-                    <label>Data de Nascimento</label>
-                    <div class="value">{{ paciente.data_nascimento|date:"d/m/Y"|default:"Não informada" }}</div>
-                </div>
-            </div>
+{% block title %}Detalhes da Consulta - MediPulse{% endblock %}
 
-            {% if paciente.alergias %}
-                <div class="alert danger">
-                    <strong>⚠️ ALERGIAS:</strong> {{ paciente.alergias }}
-                </div>
+{% block header_title %}📋 Detalhes da Consulta{% endblock %}
+
+{% block content %}
+<div class="content">
+    <!-- Patient Information Card -->
+    <div class="card">
+        <h3>👤 Informações do Paciente</h3>
+        <div class="info-grid">
+            <div>
+                <label>Nome Completo</label>
+                <strong>{{ paciente.id_utilizador.nome }}</strong>
+            </div>
+            <div>
+                <label>Email</label>
+                <strong>{{ paciente.id_utilizador.email }}</strong>
+            </div>
+            <div>
+                <label>Telefone</label>
+                <strong>{{ paciente.id_utilizador.telefone|default:"Não informado" }}</strong>
+            </div>
+            <div>
+                <label>Data de Nascimento</label>
+                <strong>{{ paciente.data_nasc|date:"d/m/Y"|default:"Não informada" }}</strong>
+            </div>
+            {% if paciente.genero %}
+            <div>
+                <label>Gênero</label>
+                <strong>{{ paciente.genero }}</strong>
+            </div>
             {% endif %}
-
-            {% if paciente.observacoes %}
-                <div class="alert info">
-                    <strong>📝 Observações:</strong> {{ paciente.observacoes }}
-                </div>
+            {% if paciente.morada %}
+            <div>
+                <label>Morada</label>
+                <strong>{{ paciente.morada }}</strong>
+            </div>
             {% endif %}
         </div>
 
-        <div class="content mt-20">
-            <h2>🗓️ Detalhes da Consulta</h2>
-            
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Data e Hora</label>
-                    <div class="value">{{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta|time:"H:i" }}</div>
-                </div>
-                <div class="info-item">
-                    <label>Estado</label>
-                    <div class="value">
-                        <span class="badge badge-success">{{ consulta.get_estado_display }}</span>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <label>Unidade de Saúde</label>
-                    <div class="value">{{ consulta.unidade_saude.nome }}</div>
-                </div>
-                <div class="info-item">
-                    <label>Preço</label>
-                    <div class="value">{{ consulta.preco }}€</div>
-                </div>
-            </div>
-
-            {% if consulta.motivo_consulta %}
-                <div class="alert warning">
-                    <strong>💬 Motivo da Consulta:</strong><br>
-                    {{ consulta.motivo_consulta }}
-                </div>
-            {% endif %}
-
-            {% if consulta.notas_medicas %}
-                <div class="alert info" style="margin-top: 20px;">
-                    <strong>📝 Notas Médicas Anteriores:</strong><br>
-                    {{ consulta.notas_medicas }}
-                </div>
-            {% endif %}
-
-            <div style="margin-top: 20px;">
-                {% if consulta.estado == 'agendada' %}
-                    <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">✅ Confirmar Consulta</a>
-                    <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">❌ Recusar</a>
-                {% elif consulta.estado == 'confirmada' %}
-                    <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-primary">📝 Registar Consulta</a>
-                {% endif %}
-                <a href="{% url 'medico_dashboard' %}" class="btn btn-secondary">← Voltar</a>
-            </div>
+        {% if paciente.alergias %}
+        <div class="alert" style="background: #fee; border-left: 4px solid #c33; margin-top: 15px;">
+            <strong>⚠️ ALERGIAS:</strong> {{ paciente.alergias }}
         </div>
+        {% endif %}
 
-        {% if historico %}
-            <div class="content mt-20">
-                <h2>📜 Histórico de Consultas com este Paciente</h2>
-                {% for cons in historico %}
-                    <div class="historico-item">
-                        <h4>{{ cons.data_consulta|date:"d/m/Y" }}</h4>
-                        <p><strong>Motivo:</strong> {{ cons.motivo_consulta|truncatewords:20 }}</p>
-                        {% if cons.notas_medicas %}
-                            <p><strong>Notas:</strong> {{ cons.notas_medicas|truncatewords:30 }}</p>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
+        {% if paciente.observacoes %}
+        <div class="alert" style="background: #e3f2fd; border-left: 4px solid #2196f3; margin-top: 15px;">
+            <strong>📝 Observações:</strong> {{ paciente.observacoes }}
+        </div>
         {% endif %}
     </div>
-</body>
-</html>
+
+    <!-- Consultation Details Card -->
+    <div class="card" style="margin-top: 20px;">
+        <h3>🗓️ Detalhes da Consulta</h3>
+        <div class="info-grid">
+            <div>
+                <label>Data e Hora</label>
+                <strong>{{ consulta.data_consulta|date:"d/m/Y" }} às {{ consulta.hora_consulta|time:"H:i" }}</strong>
+            </div>
+            <div>
+                <label>Estado</label>
+                <span class="badge 
+                    {% if consulta.estado == 'confirmada' %}badge-success
+                    {% elif consulta.estado == 'agendada' %}badge-warning
+                    {% elif consulta.estado == 'realizada' %}badge-info
+                    {% else %}badge-danger{% endif %}">
+                    {{ consulta.estado|upper }}
+                </span>
+            </div>
+            {% if consulta.id_disponibilidade.id_unidade %}
+            <div>
+                <label>Unidade de Saúde</label>
+                <strong>{{ consulta.id_disponibilidade.id_unidade.nome_unidade }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if consulta.motivo %}
+        <div class="alert" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 15px;">
+            <strong>💬 Motivo da Consulta:</strong><br>
+            {{ consulta.motivo }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- MongoDB Notas Clínicas -->
+    {% if mongo_notes %}
+    <div class="card" style="margin-top: 20px; background: #f8f9fa;">
+        <h3>📋 Notas Clínicas (MongoDB)</h3>
+        
+        {% if mongo_notes.notas_clinicas %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Notas Clínicas</label>
+            <p style="margin-top: 5px;">{{ mongo_notes.notas_clinicas }}</p>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.sintomas %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Sintomas</label>
+            <div style="margin-top: 5px;">
+                {% for sintoma in mongo_notes.sintomas %}
+                <span class="badge" style="background: #ffc107; color: #000; margin-right: 5px;">{{ sintoma }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.exame_fisico %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Exame Físico</label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 5px;">
+                {% if mongo_notes.exame_fisico.pressao_arterial %}
+                <div><strong>PA:</strong> {{ mongo_notes.exame_fisico.pressao_arterial }}</div>
+                {% endif %}
+                {% if mongo_notes.exame_fisico.temperatura %}
+                <div><strong>Temp:</strong> {{ mongo_notes.exame_fisico.temperatura }}</div>
+                {% endif %}
+                {% if mongo_notes.exame_fisico.frequencia_cardiaca %}
+                <div><strong>FC:</strong> {{ mongo_notes.exame_fisico.frequencia_cardiaca }}</div>
+                {% endif %}
+                {% if mongo_notes.exame_fisico.peso %}
+                <div><strong>Peso:</strong> {{ mongo_notes.exame_fisico.peso }} kg</div>
+                {% endif %}
+                {% if mongo_notes.exame_fisico.altura %}
+                <div><strong>Altura:</strong> {{ mongo_notes.exame_fisico.altura }} cm</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.diagnostico %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Diagnóstico</label>
+            <p style="margin-top: 5px;">{{ mongo_notes.diagnostico }}</p>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.tratamento %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Tratamento</label>
+            <p style="margin-top: 5px;">{{ mongo_notes.tratamento }}</p>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.prescricoes %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Prescrições</label>
+            <ul style="margin-top: 5px; padding-left: 20px;">
+                {% for prescricao in mongo_notes.prescricoes %}
+                <li>{{ prescricao }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.exames_solicitados %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Exames Solicitados</label>
+            <div style="margin-top: 5px;">
+                {% for exame in mongo_notes.exames_solicitados %}
+                <span class="badge" style="background: #4facfe; margin-right: 5px;">{{ exame }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.seguimento %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Seguimento</label>
+            <p style="margin-top: 5px;">{{ mongo_notes.seguimento }}</p>
+        </div>
+        {% endif %}
+
+        {% if mongo_notes.observacoes %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Observações</label>
+            <p style="margin-top: 5px;">{{ mongo_notes.observacoes }}</p>
+        </div>
+        {% endif %}
+
+        <small style="color: #999;">
+            Criado em: {{ mongo_notes.created_at|date:"d/m/Y H:i" }} | 
+            Atualizado em: {{ mongo_notes.updated_at|date:"d/m/Y H:i" }}
+        </small>
+    </div>
+    {% elif consulta.notas_clinicas or consulta.observacoes %}
+    <!-- Fallback to PostgreSQL notes if MongoDB not available -->
+    <div class="card" style="margin-top: 20px;">
+        <h3>📋 Notas da Consulta</h3>
+        {% if consulta.notas_clinicas %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Notas Clínicas</label>
+            <p style="margin-top: 5px;">{{ consulta.notas_clinicas }}</p>
+        </div>
+        {% endif %}
+        {% if consulta.observacoes %}
+        <div style="margin-bottom: 15px;">
+            <label style="color: #667eea; font-weight: bold;">Observações</label>
+            <p style="margin-top: 5px;">{{ consulta.observacoes }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div style="margin-top: 20px;">
+        {% if consulta.estado == 'agendada' %}
+            <a href="{% url 'medico_confirmar_consulta' consulta.id_consulta %}" class="btn btn-success">✅ Confirmar Consulta</a>
+            <a href="{% url 'medico_recusar_consulta' consulta.id_consulta %}" class="btn btn-danger">❌ Recusar</a>
+        {% elif consulta.estado == 'confirmada' %}
+            <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-primary">📝 Registar Consulta</a>
+        {% elif consulta.estado == 'realizada' %}
+            <a href="{% url 'medico_registar_consulta' consulta.id_consulta %}" class="btn btn-primary">✏️ Editar Notas</a>
+        {% endif %}
+        <a href="{% url 'medico_dashboard' %}" class="btn btn-secondary">← Voltar ao Dashboard</a>
+    </div>
+</div>
+
+<!-- Patient History -->
+{% if patient_history_notes %}
+<div class="content" style="margin-top: 20px;">
+    <h3>📜 Histórico Clínico do Paciente (MongoDB)</h3>
+    {% for note in patient_history_notes %}
+    <div class="card" style="margin-bottom: 15px; background: #fafafa; border-left: 4px solid #667eea;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: #667eea;">Consulta #{{ note.consulta_id }}</strong>
+            <small style="color: #999;">{{ note.created_at|date:"d/m/Y" }}</small>
+        </div>
+        {% if note.diagnostico %}
+        <p style="margin: 5px 0;"><strong>Diagnóstico:</strong> {{ note.diagnostico|truncatewords:20 }}</p>
+        {% endif %}
+        {% if note.sintomas %}
+        <p style="margin: 5px 0;"><strong>Sintomas:</strong> {{ note.sintomas|join:", " }}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% elif historico %}
+<div class="content" style="margin-top: 20px;">
+    <h3>📜 Histórico de Consultas</h3>
+    {% for cons in historico %}
+    <div class="card" style="margin-bottom: 15px; background: #fafafa;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong>{{ cons.data_consulta|date:"d/m/Y" }}</strong>
+            <span class="badge badge-info">{{ cons.estado }}</span>
+        </div>
+        {% if cons.motivo %}
+        <p style="margin: 5px 0;"><strong>Motivo:</strong> {{ cons.motivo|truncatewords:20 }}</p>
+        {% endif %}
+        {% if cons.notas_clinicas %}
+        <p style="margin: 5px 0;"><strong>Notas:</strong> {{ cons.notas_clinicas|truncatewords:30 }}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .info-grid label {
+        display: block;
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    
+    .card {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .card h3 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 20px;
+    }
+</style>
+{% endblock %}

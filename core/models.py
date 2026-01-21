@@ -222,7 +222,7 @@ class Consulta(models.Model):
     medico_aceitou = models.BooleanField(default=False, db_column='medico_aceitou')
     paciente_aceitou = models.BooleanField(default=False, db_column='paciente_aceitou')
     
-    # RF-22: Clinical notes and observations
+    # RF-22: Notas clínicas e observações
     notas_clinicas = models.TextField(blank=True, null=True, db_column='notas_clinicas', help_text='Resumo clínico da consulta')
     observacoes = models.TextField(blank=True, null=True, db_column='observacoes', help_text='Observações adicionais')
     

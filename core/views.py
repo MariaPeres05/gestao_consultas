@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 
-from .forms import LoginForm, RegisterForm
+from .forms import LoginForm, RegisterForm, PacienteDetailsForm
 from .models import (
     Utilizador,
     Paciente,
@@ -53,11 +53,54 @@ def logout_view(request):
     return redirect("login")
 
 
+@login_required
+@role_required('paciente')
+def update_paciente_details(request):
+    """Allow patient to update their personal details"""
+    paciente = Paciente.objects.filter(id_utilizador=request.user).first()
+    
+    if not paciente:
+        messages.error(request, "Não foi possível encontrar o registo de paciente.")
+        return redirect("patient_home")
+    
+    if request.method == "POST":
+        form = PacienteDetailsForm(request.POST)
+        if form.is_valid():
+            paciente.data_nasc = form.cleaned_data["data_nasc"]
+            paciente.genero = form.cleaned_data["genero"]
+            paciente.morada = form.cleaned_data["morada"]
+            paciente.alergias = form.cleaned_data["alergias"]
+            paciente.observacoes = form.cleaned_data["observacoes"]
+            paciente.save()
+            
+            messages.success(request, "✅ Dados atualizados com sucesso!")
+            return redirect("patient_home")
+    else:
+        # Pre-populate form with existing data
+        initial_data = {
+            "data_nasc": paciente.data_nasc,
+            "genero": paciente.genero,
+            "morada": paciente.morada or "",
+            "alergias": paciente.alergias or "",
+            "observacoes": paciente.observacoes or "",
+        }
+        form = PacienteDetailsForm(initial=initial_data)
+    
+    return render(request, "core/update_paciente_details.html", {
+        "form": form,
+        "paciente": paciente,
+    })
+
+
 def register_view(request):
+    from .email_utils import enviar_email_verificacao
+    from datetime import date
+    
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
-            Utilizador.objects.create_user(
+            # Create user account
+            user = Utilizador.objects.create_user(
                 nome=form.cleaned_data["nome"],
                 email=form.cleaned_data["email"],
                 telefone=form.cleaned_data["telefone"],
@@ -65,7 +108,23 @@ def register_view(request):
                 role=Utilizador.ROLE_PACIENTE,
                 ativo=True,
             )
-            messages.success(request, "Conta criada com sucesso!")
+            
+            # Create corresponding Paciente record
+            Paciente.objects.create(
+                id_utilizador=user,
+                data_nasc=date(2000, 1, 1),  # Default date - user can update in profile
+                genero="Não especificado",  # Default - user can update in profile
+                morada="",
+                alergias="",
+                observacoes=""
+            )
+            
+            # Enviar email de verificação
+            if enviar_email_verificacao(user, request):
+                messages.success(request, "✅ Conta criada com sucesso! Verifique o seu email para ativar a conta.")
+            else:
+                messages.success(request, "Conta criada com sucesso! Pode fazer login.")
+            
             return redirect("login")
 
     else:
@@ -75,7 +134,84 @@ def register_view(request):
 
 
 def dashboard(request):
-    return render(request, "core/dashboard.html")
+    """
+    Generic dashboard view that redirects users to their role-specific dashboard.
+    This ensures users always land on the appropriate page for their role.
+    """
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Redirect based on user role
+    if request.user.role == 'medico':
+        return redirect('medico_dashboard')
+    elif request.user.role == 'paciente':
+        return redirect('patient_home')
+    elif request.user.role == 'admin':
+        return redirect('admin_dashboard')
+    elif request.user.role == 'enfermeiro':
+        return redirect('enfermeiro_dashboard')
+    
+    # Fallback to home page if role is not recognized
+    return redirect('home')
+
+
+def verify_email(request, token):
+    """
+    View para verificar o email do utilizador através do token enviado por email.
+    
+    Args:
+        token: Token de verificação único enviado no email
+    """
+    try:
+        # Buscar utilizador pelo token de verificação
+        user = Utilizador.objects.get(verification_token=token)
+        
+        # Verificar se já foi verificado
+        if user.email_verified:
+            messages.info(request, "Este email já foi verificado anteriormente.")
+            return redirect('login')
+        
+        # Marcar email como verificado e limpar token
+        user.email_verified = True
+        user.verification_token = None
+        user.save(update_fields=['email_verified', 'verification_token'])
+        
+        messages.success(request, "✅ Email verificado com sucesso! Pode agora fazer login.")
+        return redirect('login')
+        
+    except Utilizador.DoesNotExist:
+        messages.error(request, "Link de verificação inválido ou expirado.")
+        return redirect('login')
+    except Exception as e:
+        messages.error(request, "Ocorreu um erro ao verificar o email. Por favor, tente novamente.")
+        return redirect('login')
+
+
+def resend_verification(request):
+    """
+    View para reenviar email de verificação para utilizadores não verificados.
+    Requer que o utilizador esteja autenticado.
+    """
+    from .email_utils import reenviar_email_verificacao
+    
+    if not request.user.is_authenticated:
+        messages.error(request, "Precisa fazer login primeiro.")
+        return redirect('login')
+    
+    user = request.user
+    
+    # Verificar se já está verificado
+    if user.email_verified:
+        messages.info(request, "O seu email já está verificado.")
+        return redirect('dashboard')
+    
+    # Reenviar email de verificação
+    if reenviar_email_verificacao(user, request):
+        messages.success(request, "📧 Email de verificação reenviado! Verifique a sua caixa de entrada.")
+    else:
+        messages.error(request, "Erro ao reenviar email de verificação. Tente novamente mais tarde.")
+    
+    return redirect('dashboard')
 
 
 def patient_home(request):
