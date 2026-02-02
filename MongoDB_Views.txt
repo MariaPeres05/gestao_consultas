@@ -1,0 +1,120 @@
+db.createView(
+  "notas_por_consulta",
+  "notas_clinicas",
+  [
+    {
+      $project: {
+        consulta_id: 1,
+        medico_id: 1,
+        paciente_id: 1,
+        notas_clinicas: 1,
+        observacoes: 1,
+        diagnostico: 1,
+        tratamento: 1,
+        exame_fisico: 1,
+        sintomas: 1,
+        prescricoes: 1,
+        exames_solicitados: 1,
+        seguimento: 1,
+        created_at: 1,
+        updated_at: 1
+      }
+    }
+  ]
+)
+
+// View 2: notas_por_paciente (pre-sorted)
+db.createView(
+  "notas_por_paciente",
+  "notas_clinicas",
+  [
+    {
+      $sort: { created_at: -1 }
+    },
+    {
+      $project: {
+        consulta_id: 1,
+        medico_id: 1,
+        paciente_id: 1,
+        notas_clinicas: 1,
+        observacoes: 1,
+        diagnostico: 1,
+        tratamento: 1,
+        exame_fisico: 1,
+        sintomas: 1,
+        prescricoes: 1,
+        exames_solicitados: 1,
+        seguimento: 1,
+        created_at: 1,
+        updated_at: 1
+      }
+    }
+  ]
+)
+
+// View 3: notas_por_medico (pre-sorted)
+db.createView(
+  "notas_por_medico",
+  "notas_clinicas",
+  [
+    {
+      $sort: { created_at: -1 }
+    },
+    {
+      $project: {
+        consulta_id: 1,
+        medico_id: 1,
+        paciente_id: 1,
+        notas_clinicas: 1,
+        observacoes: 1,
+        diagnostico: 1,
+        tratamento: 1,
+        exame_fisico: 1,
+        sintomas: 1,
+        prescricoes: 1,
+        exames_solicitados: 1,
+        seguimento: 1,
+        created_at: 1,
+        updated_at: 1
+      }
+    }
+  ]
+)
+
+// View 4: notas_resumo (with summary fields)
+db.createView(
+  "notas_resumo",
+  "notas_clinicas",
+  [
+    {
+      $project: {
+        consulta_id: 1,
+        medico_id: 1,
+        paciente_id: 1,
+        diagnostico: 1,
+        created_at: 1,
+        updated_at: 1,
+        resumo_notas: {
+          $substr: ["$notas_clinicas", 0, 200]
+        },
+        tem_prescricoes: {
+          $cond: {
+            if: { $gt: [{ $size: { $ifNull: ["$prescricoes", []] } }, 0] },
+            then: true,
+            else: false
+          }
+        },
+        tem_exames: {
+          $cond: {
+            if: { $gt: [{ $size: { $ifNull: ["$exames_solicitados", []] } }, 0] },
+            then: true,
+            else: false
+          }
+        }
+      }
+    },
+    {
+      $sort: { created_at: -1 }
+    }
+  ]
+)

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class MongoDBClient:
     """
-    Singleton MongoDB client for managing notas clínicas and medical records.
+    Singleton MongoDB client for managing notas clínicas and medical records
     """
     _instance = None
     _client = None
@@ -71,6 +71,12 @@ class MongoDBClient:
         if not self.is_connected:
             raise ConnectionError("MongoDB is not connected")
         return self._db[collection_name]
+    
+    def get_view(self, view_name):
+        """Get a MongoDB view (read-only)"""
+        if not self.is_connected:
+            raise ConnectionError("MongoDB is not connected")
+        return self._db[view_name]
 
 
 class NotasClinicasService:
@@ -83,8 +89,20 @@ class NotasClinicasService:
         if self.mongo.is_connected:
             collection_name = getattr(settings, 'MONGO_COLLECTION_NAME', 'notas_clinicas')
             self.collection = self.mongo.get_collection(collection_name)
+            
+            # Load MongoDB views (required for all read operations)
+            try:
+                self.view_por_consulta = self.mongo.get_view('notas_por_consulta')
+                self.view_por_paciente = self.mongo.get_view('notas_por_paciente')
+                self.view_por_medico = self.mongo.get_view('notas_por_medico')
+                self.view_resumo = self.mongo.get_view('notas_resumo')
+                logger.info("MongoDB views loaded successfully")
+            except Exception as e:
+                logger.error(f"CRITICAL: Failed to load MongoDB views.Error: {e}")
+                raise ConnectionError(f"MongoDB views not found.")
         else:
             self.collection = None
+            raise ConnectionError("MongoDB is not connected")
     
     def create_note(self, consulta_id, medico_id, paciente_id, notes_data):
         """
@@ -129,44 +147,27 @@ class NotasClinicasService:
             return None
     
     def get_note_by_consulta(self, consulta_id):
-        """Get nota clínica for a specific consultation"""
-        if self.collection is None:
-            logger.warning("MongoDB collection not available")
-            return None
-        
         try:
-            note = self.collection.find_one({'consulta_id': consulta_id})
+            note = self.view_por_consulta.find_one({'consulta_id': consulta_id})
             return note
         except Exception as e:
-            logger.error(f"Failed to retrieve nota clínica: {e}")
+            logger.error(f"Failed to retrieve nota clínica from view: {e}")
             return None
     
     def get_notes_by_patient(self, paciente_id, limit=50):
-        """Get all notas clínicas for a patient"""
-        if self.collection is None:
-            return []
-        
         try:
-            notes = self.collection.find(
-                {'paciente_id': paciente_id}
-            ).sort('created_at', DESCENDING).limit(limit)
+            notes = self.view_por_paciente.find({'paciente_id': paciente_id}).limit(limit)
             return list(notes)
         except Exception as e:
-            logger.error(f"Failed to retrieve patient notes: {e}")
+            logger.error(f"Failed to retrieve patient notes from view: {e}")
             return []
     
     def get_notes_by_medico(self, medico_id, limit=50):
-        """Get all notas clínicas created by a doctor"""
-        if self.collection is None:
-            return []
-        
         try:
-            notes = self.collection.find(
-                {'medico_id': medico_id}
-            ).sort('created_at', DESCENDING).limit(limit)
+            notes = self.view_por_medico.find({'medico_id': medico_id}).limit(limit)
             return list(notes)
         except Exception as e:
-            logger.error(f"Failed to retrieve doctor notes: {e}")
+            logger.error(f"Failed to retrieve doctor notes from view: {e}")
             return []
     
     def update_note(self, consulta_id, notes_data):
@@ -207,20 +208,15 @@ class NotasClinicasService:
             return False
     
     def search_notes(self, query_text, limit=50):
-        """Search notas clínicas by text"""
-        if self.collection is None:
-            return []
-        
         try:
-            # Simple text search in notas_clinicas and observacoes
-            notes = self.collection.find({
+            notes = self.view_resumo.find({
                 '$or': [
-                    {'notas_clinicas': {'$regex': query_text, '$options': 'i'}},
-                    {'observacoes': {'$regex': query_text, '$options': 'i'}},
+                    {'resumo_notas': {'$regex': query_text, '$options': 'i'}},
                     {'diagnostico': {'$regex': query_text, '$options': 'i'}}
                 ]
-            }).sort('created_at', DESCENDING).limit(limit)
+            }).limit(limit)
+            
             return list(notes)
         except Exception as e:
-            logger.error(f"Failed to search notes: {e}")
+            logger.error(f"Failed to search notes from view: {e}")
             return []
