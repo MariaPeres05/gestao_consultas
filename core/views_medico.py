@@ -2,19 +2,21 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.db import connection
 from django.db.models import Q, Count
 from datetime import datetime, timedelta
 from .models import Medico, Consulta, Disponibilidade, Paciente, Receita
 from .decorators import role_required
 from .mongo_client import NotasClinicasService
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 @login_required
 @role_required('medico')
 def medico_dashboard(request):
-    """Dashboard principal do médico"""
+    """Dashboard principal do médico usando funções e procedimentos PostgreSQL"""
     try:
         medico = Medico.objects.get(id_utilizador=request.user)
     except Medico.DoesNotExist:
@@ -22,60 +24,112 @@ def medico_dashboard(request):
         return redirect('index')
     
     hoje = timezone.now().date()
-    inicio_semana = hoje - timedelta(days=hoje.weekday())
-    fim_semana = inicio_semana + timedelta(days=6)
-    inicio_mes = hoje.replace(day=1)
     
-    # Consultas de hoje
-    consultas_hoje = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta=hoje
-    ).select_related('id_paciente__id_utilizador').order_by('data_consulta')
-    
-    # Adicionar propriedade can_cancel_24h a cada consulta
-    for consulta in consultas_hoje:
-        consulta_datetime = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
-        if timezone.is_aware(consulta_datetime):
-            consulta_datetime = timezone.make_naive(consulta_datetime)
-        consulta_datetime = timezone.make_aware(consulta_datetime)
-        tempo_restante = consulta_datetime - timezone.now()
-        consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
-    
-    # Consultas da semana - count only confirmed (accepted by both parties) and not canceled
-    consultas_semana = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta__range=[inicio_semana, fim_semana],
-        estado='confirmada'
-    ).count()
-    
-    # Consultas do mês - count only confirmed (accepted by both parties) and not canceled
-    consultas_mes = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta__gte=inicio_mes,
-        estado='confirmada'
-    ).count()
-    
-    # Próximas consultas (próximos 7 dias)
-    proximas_consultas = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta__gte=timezone.now().date(),
-        estado__in=['agendada', 'confirmada']
-    ).select_related('id_paciente__id_utilizador').order_by('data_consulta')[:10]
-    
-    # Adicionar propriedade can_cancel_24h a cada consulta
-    for consulta in proximas_consultas:
-        consulta_datetime = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
-        if timezone.is_aware(consulta_datetime):
-            consulta_datetime = timezone.make_naive(consulta_datetime)
-        consulta_datetime = timezone.make_aware(consulta_datetime)
-        tempo_restante = consulta_datetime - timezone.now()
-        consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
-    
-    # Pedidos pendentes de confirmação
-    pedidos_pendentes = Consulta.objects.filter(
-        id_medico=medico,
-        estado='agendada'
-    ).count()
+    try:
+        # Opção 1: Usar procedimento único (mais eficiente)
+        with connection.cursor() as cursor:
+            cursor.callproc('obter_dashboard_medico', [medico.id_medico])
+            result = cursor.fetchone()
+            
+            if result:
+                # Desempacotar resultados do procedimento
+                consultas_hoje_json = result[0] or '[]'
+                consultas_semana = result[1] or 0
+                consultas_mes = result[2] or 0
+                pedidos_pendentes = result[3] or 0
+                estatisticas_json = result[4] or '{}'
+                
+                consultas_hoje = json.loads(consultas_hoje_json)
+                estatisticas = json.loads(estatisticas_json)
+            else:
+                consultas_hoje = []
+                consultas_semana = 0
+                consultas_mes = 0
+                pedidos_pendentes = 0
+                estatisticas = {
+                    'consultas_realizadas': 0,
+                    'consultas_agendadas': 0,
+                    'consultas_confirmadas': 0,
+                    'consultas_canceladas': 0,
+                    'disponibilidades_disponiveis': 0,
+                }
+        
+        # Obter próximas consultas usando função
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_proximas_consultas_medico(%s, %s)", 
+                         [medico.id_medico, 10])
+            proximas_consultas = []
+            for row in cursor.fetchall():
+                consulta_dict = {
+                    'id_consulta': row[0],
+                    'data_consulta': row[1],
+                    'hora_consulta': row[2],
+                    'estado': row[3],
+                    'motivo': row[4],
+                    'paciente_nome': row[5],
+                    'especialidade_nome': row[7],
+                    'nome_unidade': row[8],
+                    'can_cancel_24h': row[9]
+                }
+                proximas_consultas.append(consulta_dict)
+                
+    except Exception as e:
+        # Fallback para funções individuais em caso de erro
+        print(f"Erro no procedimento: {e}")
+        
+        # Usar funções individuais
+        consultas_hoje = []
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_consultas_hoje_medico(%s)", [medico.id_medico])
+            for row in cursor.fetchall():
+                consulta_dict = {
+                    'id_consulta': row[0],
+                    'data_consulta': row[1],
+                    'hora_consulta': row[2],
+                    'estado': row[3],
+                    'motivo': row[4],
+                    'paciente_nome': row[5],
+                    'can_cancel_24h': row[10]
+                }
+                consultas_hoje.append(consulta_dict)
+        
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT contar_consultas_semana_medico(%s)", [medico.id_medico])
+            consultas_semana = cursor.fetchone()[0] or 0
+            
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT contar_consultas_mes_medico(%s)", [medico.id_medico])
+            consultas_mes = cursor.fetchone()[0] or 0
+            
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT contar_pedidos_pendentes_medico(%s)", [medico.id_medico])
+            pedidos_pendentes = cursor.fetchone()[0] or 0
+            
+        proximas_consultas = []
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_proximas_consultas_medico(%s, %s)", 
+                         [medico.id_medico, 10])
+            for row in cursor.fetchall():
+                consulta_dict = {
+                    'id_consulta': row[0],
+                    'data_consulta': row[1],
+                    'hora_consulta': row[2],
+                    'estado': row[3],
+                    'motivo': row[4],
+                    'paciente_nome': row[5],
+                    'especialidade_nome': row[7],
+                    'nome_unidade': row[8],
+                    'can_cancel_24h': row[9]
+                }
+                proximas_consultas.append(consulta_dict)
+                
+        estatisticas = {
+            'consultas_realizadas': 0,
+            'consultas_agendadas': 0,
+            'consultas_confirmadas': 0,
+            'consultas_canceladas': 0,
+            'disponibilidades_disponiveis': 0,
+        }
     
     context = {
         'medico': medico,
@@ -84,6 +138,7 @@ def medico_dashboard(request):
         'consultas_mes': consultas_mes,
         'proximas_consultas': proximas_consultas,
         'pedidos_pendentes': pedidos_pendentes,
+        'estatisticas': estatisticas,
         'hoje': hoje,
     }
     
@@ -93,13 +148,25 @@ def medico_dashboard(request):
 @login_required
 @role_required('medico')
 def medico_agenda(request):
-    """Visualizar e gerenciar agenda com disponibilidades integradas"""
-    from core.models import UnidadeSaude
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
+    """Visualizar e gerenciar agenda com disponibilidades integradas usando PostgreSQL"""
+    hoje = timezone.now().date()
+    
+    # Verificar se médico existe usando função PostgreSQL
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM verificar_medico_por_utilizador(%s)", [request.user.id_utilizador])
+        medico_info = cursor.fetchone()
+    
+    if not medico_info:
         messages.error(request, "Perfil de médico não encontrado.")
         return redirect('index')
+    
+    medico = {
+        'id_medico': medico_info[0],
+        'nome': medico_info[1],
+        'email': medico_info[2],
+        'numero_ordem': medico_info[3],
+        'especialidade_nome': medico_info[4]
+    }
     
     # Handle POST requests for availability management
     if request.method == 'POST':
@@ -110,63 +177,27 @@ def medico_agenda(request):
             data_consulta = request.POST.get('data_consulta')
             hora_inicio = request.POST.get('hora_inicio')
             hora_fim = request.POST.get('hora_fim')
+            motivo = request.POST.get('motivo', '')
             
+            # Chamar procedimento para agendar consulta
             try:
-                paciente = Paciente.objects.get(id_paciente=paciente_id)
-                
-                # Validar data/hora
-                if not data_consulta or not hora_inicio or not hora_fim:
-                    messages.error(request, "Data e horas são obrigatórias.")
-                    return redirect('medico_agenda')
-                
-                # Converter strings para objetos date e time
-                data_obj = datetime.strptime(data_consulta, '%Y-%m-%d').date()
-                hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
-                hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
-                
-                # Validar que fim é depois de início
-                if hora_fim_obj <= hora_inicio_obj:
-                    messages.error(request, "O fim da consulta deve ser posterior ao início.")
-                    return redirect('medico_agenda')
-                
-                # Verificar se já existe consulta no mesmo horário para o médico
-                if Consulta.objects.filter(
-                    id_medico=medico,
-                    data_consulta=data_obj,
-                    hora_consulta=hora_inicio_obj
-                ).exclude(estado='cancelada').exists():
-                    messages.error(request, "Já existe uma consulta agendada neste horário.")
-                    return redirect('medico_agenda')
-                
-                # Procurar disponibilidade que cubra este período
-                disponibilidade = Disponibilidade.objects.filter(
-                    id_medico=medico,
-                    data=data_obj,
-                    hora_inicio__lte=hora_inicio_obj,
-                    hora_fim__gte=hora_fim_obj
-                ).exclude(status_slot__iexact='booked').first()
-                
-                # Criar a consulta com estado='agendada' - médico já aceita, aguarda paciente
-                consulta = Consulta.objects.create(
-                    id_paciente=paciente,
-                    id_medico=medico,
-                    id_disponibilidade=disponibilidade,
-                    data_consulta=data_obj,
-                    hora_consulta=hora_inicio_obj,
-                    estado='agendada',  # Aguarda aceitação do paciente
-                    medico_aceitou=True,  # Médico já aceita automaticamente ao criar
-                    paciente_aceitou=False  # Paciente precisa aceitar
-                )
-                
-                messages.success(request, f"Consulta agendada com sucesso para {paciente.id_utilizador.nome}. Aguarda aceitação do paciente.")
-                return redirect('medico_agenda')
-                
-            except Paciente.DoesNotExist:
-                messages.error(request, "Paciente não encontrado.")
-                return redirect('medico_agenda')
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        CALL agendar_consulta_medico(%s, %s, %s, %s, %s, NULL, NULL, %s)
+                    """, [
+                        medico['id_medico'],
+                        int(paciente_id),
+                        data_consulta,
+                        hora_inicio,
+                        hora_fim,
+                        motivo
+                    ])
+                messages.success(request, "Consulta agendada com sucesso")
+                    
             except Exception as e:
                 messages.error(request, f"Erro ao agendar consulta: {str(e)}")
-                return redirect('medico_agenda')
+            
+            return redirect('medico_agenda')
         
         elif action == 'criar_disponibilidade_e_agendar':
             paciente_id = request.POST.get('paciente_id')
@@ -176,54 +207,30 @@ def medico_agenda(request):
             unidade_id = request.POST.get('unidade_id')
             disp_hora_inicio = request.POST.get('disp_hora_inicio')
             disp_hora_fim = request.POST.get('disp_hora_fim')
+            motivo = request.POST.get('motivo', '')
             
+            # Chamar procedimento para criar disponibilidade e agendar
             try:
-                from core.models import UnidadeSaude
-                
-                paciente = Paciente.objects.get(id_paciente=paciente_id)
-                unidade = UnidadeSaude.objects.get(id_unidade=unidade_id)
-                
-                # Converter strings
-                data_obj = datetime.strptime(data_consulta, '%Y-%m-%d').date()
-                hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
-                hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
-                disp_inicio_obj = datetime.strptime(disp_hora_inicio, '%H:%M').time()
-                disp_fim_obj = datetime.strptime(disp_hora_fim, '%H:%M').time()
-                
-                # Validar que a disponibilidade cobre a consulta
-                if disp_inicio_obj > hora_inicio_obj or disp_fim_obj < hora_fim_obj:
-                    messages.error(request, "A disponibilidade deve cobrir todo o período da consulta.")
-                    return redirect('medico_agenda')
-                
-                # Criar disponibilidade
-                disponibilidade = Disponibilidade.objects.create(
-                    id_medico=medico,
-                    id_unidade=unidade,
-                    data=data_obj,
-                    hora_inicio=disp_inicio_obj,
-                    hora_fim=disp_fim_obj,
-                    status_slot='disponivel',
-                    duracao_slot=30
-                )
-                
-                # Criar consulta com estado='agendada' - médico aceita, aguarda paciente
-                consulta = Consulta.objects.create(
-                    id_paciente=paciente,
-                    id_medico=medico,
-                    id_disponibilidade=disponibilidade,
-                    data_consulta=data_obj,
-                    hora_consulta=hora_inicio_obj,
-                    estado='agendada',  # Aguarda aceitação do paciente
-                    medico_aceitou=True,  # Médico aceita ao criar
-                    paciente_aceitou=False  # Paciente precisa aceitar
-                )
-                
-                messages.success(request, f"Disponibilidade criada e consulta agendada para {paciente.id_utilizador.nome}. Aguarda aceitação do paciente.")
-                return redirect('medico_agenda')
-                
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        CALL criar_disponibilidade_e_agendar(%s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, %s)
+                    """, [
+                        medico['id_medico'],
+                        int(paciente_id),
+                        data_consulta,
+                        hora_inicio,
+                        hora_fim,
+                        int(unidade_id),
+                        disp_hora_inicio,
+                        disp_hora_fim,
+                        motivo
+                    ])
+                messages.success(request, "Disponibilidade criada e consulta agendada com sucesso")
+                    
             except Exception as e:
-                messages.error(request, f"Erro: {str(e)}")
-                return redirect('medico_agenda')
+                messages.error(request, f"Erro ao criar disponibilidade: {str(e)}")
+            
+            return redirect('medico_agenda')
         
         elif action == 'set_disponibilidade':
             data = request.POST.get('data')
@@ -232,43 +239,29 @@ def medico_agenda(request):
             unidade_id = request.POST.get('unidade')
             disponivel = request.POST.get('disponivel') == 'on'
             
-            # Get selected unidade
-            from core.models import UnidadeSaude
             if not unidade_id:
                 messages.error(request, "Por favor, selecione uma unidade de saúde.")
                 return redirect('medico_agenda')
             
+            # Chamar procedimento para definir disponibilidade
             try:
-                unidade = UnidadeSaude.objects.get(id_unidade=unidade_id)
-            except UnidadeSaude.DoesNotExist:
-                messages.error(request, "Unidade de saúde não encontrada.")
-                return redirect('medico_agenda')
-            
-            status = 'disponivel' if disponivel else 'indisponivel'
-            duracao = 30  # default slot duration
-            
-            try:
-                disp, created = Disponibilidade.objects.get_or_create(
-                    id_medico=medico,
-                    id_unidade=unidade,
-                    data=data,
-                    hora_inicio=hora_inicio,
-                    defaults={
-                        'hora_fim': hora_fim,
-                        'status_slot': status,
-                        'duracao_slot': duracao
-                    }
-                )
-                
-                if not created:
-                    disp.hora_fim = hora_fim
-                    disp.status_slot = status
-                    disp.save()
-                    messages.success(request, "Disponibilidade atualizada!")
-                else:
-                    messages.success(request, "Disponibilidade criada!")
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        CALL definir_disponibilidade(%s, %s, %s, %s, %s, %s, NULL, NULL)
+                    """, [
+                        medico['id_medico'],
+                        data,
+                        hora_inicio,
+                        hora_fim,
+                        int(unidade_id),
+                        disponivel
+                    ])
+                messages.success(request, "Disponibilidade definida com sucesso")
+                    
             except Exception as e:
-                messages.error(request, f"Erro: {str(e)}")
+                messages.error(request, f"Erro ao definir disponibilidade: {str(e)}")
+            
+            return redirect('medico_agenda')
         
         elif action == 'set_ferias':
             data_inicio = request.POST.get('data_inicio')
@@ -279,95 +272,83 @@ def medico_agenda(request):
             if motivo == 'outro' and motivo_outro:
                 motivo = motivo_outro
             
-            # Get first available unidade
-            from core.models import UnidadeSaude
-            unidade = UnidadeSaude.objects.first()
-            if not unidade:
-                messages.error(request, "Nenhuma unidade de saúde disponível. Contacte o administrador.")
-                return redirect('medico_agenda')
-            
-            duracao = 30  # default slot duration
-            
+            # Chamar procedimento para definir férias
             try:
-                start = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-                end = datetime.strptime(data_fim, '%Y-%m-%d').date()
-                
-                dias_criados = 0
-                current = start
-                while current <= end:
-                    disp, created = Disponibilidade.objects.get_or_create(
-                        id_medico=medico,
-                        data=current,
-                        hora_inicio='00:00',
-                        defaults={
-                            'id_unidade': unidade,
-                            'hora_fim': '23:59',
-                            'status_slot': 'ferias',
-                            'duracao_slot': duracao
-                        }
-                    )
-                    if not created:
-                        disp.status_slot = 'ferias'
-                        disp.save()
-                    dias_criados += 1
-                    current += timedelta(days=1)
-                
-                messages.success(request, f"Período de {dias_criados} dia(s) marcado como indisponível!")
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        CALL definir_ferias_medico(%s, %s, %s, %s, NULL, NULL)
+                    """, [
+                        medico['id_medico'],
+                        data_inicio,
+                        data_fim,
+                        motivo
+                    ])
+                messages.success(request, f"Férias definidas de {data_inicio} a {data_fim}")
+                    
             except Exception as e:
-                messages.error(request, f"Erro: {str(e)}")
-        
-        return redirect('medico_agenda')
+                messages.error(request, f"Erro ao definir férias: {str(e)}")
+            
+            return redirect('medico_agenda')
     
-    # Calendar month filter (for calendar tab)
+    # Calendar month filter
     cal_year = request.GET.get('cal_year')
     cal_month = request.GET.get('cal_month')
     
     if cal_year and cal_month:
         cal_year = int(cal_year)
         cal_month = int(cal_month)
-        mes_inicio = datetime(cal_year, cal_month, 1).date()
     else:
-        hoje = timezone.now().date()
-        mes_inicio = hoje.replace(day=1)
         cal_year = hoje.year
         cal_month = hoje.month
     
-    # Calculate end of month
-    if mes_inicio.month == 12:
-        mes_fim = mes_inicio.replace(year=mes_inicio.year + 1, month=1, day=1) - timedelta(days=1)
-    else:
-        mes_fim = mes_inicio.replace(month=mes_inicio.month + 1, day=1) - timedelta(days=1)
+    # Obter calendário mensal usando função PostgreSQL
+    calendario_mensal = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_calendario_mensal_medico(%s, %s, %s)", 
+                     [medico['id_medico'], cal_year, cal_month])
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            item = dict(zip(columns, row))
+            # Renomear 'id' para 'id_consulta' ou 'id_disponibilidade' conforme o tipo
+            if item['tipo'] == 'consulta':
+                item['id_consulta'] = item['id']
+            else:
+                item['id_disponibilidade'] = item['id']
+            calendario_mensal.append(item)
     
-    # Fetch data for calendar (entire month)
-    consultas_mes = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta__range=[mes_inicio, mes_fim]
-    ).exclude(estado='cancelada').select_related('id_paciente__id_utilizador').order_by('data_consulta', 'hora_consulta')
-    
-    # Adicionar propriedade can_cancel_24h a cada consulta do mês (para o calendário)
-    agora = timezone.now()
-    for consulta in consultas_mes:
-        data_hora_consulta = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
-        data_hora_consulta = timezone.make_aware(data_hora_consulta, timezone.get_current_timezone())
-        tempo_restante = data_hora_consulta - agora
-        consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
-    
-    disponibilidades_mes = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__range=[mes_inicio, mes_fim]
-    ).order_by('data', 'hora_inicio')
+    # Separar consultas e disponibilidades do calendário
+    consultas_mes = [item for item in calendario_mensal if item['tipo'] == 'consulta']
+    disponibilidades_mes = [item for item in calendario_mensal if item['tipo'] == 'disponibilidade']
     
     # Filtros de data (for consultas tab)
     periodo = request.GET.get('periodo', 'semana')
     data_inicial = request.GET.get('data_inicial')
-    
-    hoje = timezone.now().date()
     
     if data_inicial:
         data_inicial = datetime.strptime(data_inicial, '%Y-%m-%d').date()
     else:
         data_inicial = hoje
     
+    # Obter agenda do período usando função PostgreSQL
+    agenda_periodo = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_agenda_medico(%s, %s, NULL, %s)", 
+                     [medico['id_medico'], data_inicial, periodo])
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            item = dict(zip(columns, row))
+            # Renomear 'id' para 'id_consulta' ou 'id_disponibilidade' conforme o tipo
+            if item['tipo'] == 'consulta':
+                item['id_consulta'] = item['id']
+            else:
+                item['id_disponibilidade'] = item['id']
+            agenda_periodo.append(item)
+    
+    # Separar consultas e disponibilidades do período
+    consultas = [item for item in agenda_periodo if item['tipo'] == 'consulta']
+    disponibilidades = [item for item in agenda_periodo if item['tipo'] == 'disponibilidade']
+    
+    # Calcular data_final baseado no período
     if periodo == 'dia':
         data_final = data_inicial
     elif periodo == 'semana':
@@ -381,46 +362,43 @@ def medico_agenda(request):
         else:
             data_final = data_inicial.replace(month=data_inicial.month + 1, day=1) - timedelta(days=1)
     
-    # Buscar consultas (filtered by period)
-    consultas = Consulta.objects.filter(
-        id_medico=medico,
-        data_consulta__range=[data_inicial, data_final]
-    ).exclude(estado='cancelada').select_related('id_paciente__id_utilizador').order_by('data_consulta', 'hora_consulta')
+    # Obter disponibilidades futuras não ocupadas
+    disponibilidades_futuras = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_disponibilidades_futuras_medico(%s, 100)", 
+                     [medico['id_medico']])
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            item = dict(zip(columns, row))
+            disponibilidades_futuras.append(item)
     
-    # Adicionar propriedade can_cancel_24h a cada consulta (para o tab de consultas)
-    for consulta in consultas:
-        data_hora_consulta = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
-        data_hora_consulta = timezone.make_aware(data_hora_consulta, timezone.get_current_timezone())
-        tempo_restante = data_hora_consulta - agora
-        consulta.can_cancel_24h = tempo_restante >= timedelta(hours=24)
+    # Obter unidades de saúde
+    unidades = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_unidades_saude()")
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            unidades.append(dict(zip(columns, row)))
     
-    # Buscar disponibilidades para o período selecionado (consultas tab)
-    disponibilidades = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__range=[data_inicial, data_final]
-    ).order_by('data', 'hora_inicio')
-   
-   # Buscar disponibilidades futuras NÃO ocupadas (status diferente de 'booked')
-    disponibilidades_futuras = Disponibilidade.objects.filter(
-    Q(id_medico=medico),
-    Q(data__gte=hoje),
-    ~Q(status_slot__iexact='booked')  # Excluir slots já ocupados
-    ).order_by('data', 'hora_inicio')[:100]
+    # Obter pacientes ativos
+    pacientes = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_pacientes_ativos()")
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            pacientes.append(dict(zip(columns, row)))
     
-    # Get all unidades for dropdown
-    unidades = UnidadeSaude.objects.all().order_by('nome_unidade')
-    
-    # Get active patients for scheduling
-    pacientes = Paciente.objects.select_related('id_utilizador').filter(
-        id_utilizador__ativo=True
-    ).order_by('id_utilizador__nome')
-    
-    # Get future disponibilidades for scheduling (next 60 days)
-    disponibilidades_agendar = Disponibilidade.objects.filter(
-    id_medico=medico,
-    data__gte=hoje,
-    status_slot__in=['disponivel', 'available']  # Apenas disponíveis
-    ).order_by('data', 'hora_inicio')[:50]
+    # Obter disponibilidades para agendamento
+    disponibilidades_agendar = []
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_disponibilidades_agendar_medico(%s, 50)", 
+                     [medico['id_medico']])
+        columns = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            item = dict(zip(columns, row))
+            # Calcular se há slots disponíveis
+            if item['slots_disponiveis'] > 0:
+                disponibilidades_agendar.append(item)
     
     context = {
         'medico': medico,
@@ -445,8 +423,10 @@ def medico_agenda(request):
 @login_required
 @role_required('medico')
 def medico_excluir_disponibilidade(request, disponibilidade_id):
-    """Excluir uma disponibilidade que não está ocupada"""
-    from core.models import UnidadeSaude
+    """Excluir uma disponibilidade que não está ocupada usando procedimento SQL"""
+    from core.models import Medico
+    from django.db import connection
+    
     try:
         medico = Medico.objects.get(id_utilizador=request.user)
     except Medico.DoesNotExist:
@@ -454,43 +434,80 @@ def medico_excluir_disponibilidade(request, disponibilidade_id):
         return redirect('index')
     
     try:
-        disponibilidade = Disponibilidade.objects.get(
-            id_disponibilidade=disponibilidade_id,
-            id_medico=medico
-        )
-        
-        if Consulta.objects.filter(id_disponibilidade=disponibilidade).exists():
-            messages.error(request, "Não é possível excluir uma disponibilidade que já tem consultas marcadas.")
-        else:
-            disponibilidade.delete()
-            messages.success(request, "Disponibilidade excluída com sucesso!")
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                CALL excluir_disponibilidade(
+                    %s,  -- p_disponibilidade_id
+                    %s,  -- p_id_medico
+                    NULL, -- mensagem (OUT)
+                    NULL  -- sucesso (OUT)
+                )
+            """, [disponibilidade_id, medico.id_medico])
             
-    except Disponibilidade.DoesNotExist:
-        messages.error(request, "Disponibilidade não encontrada.")
+            # Obter os parâmetros de saída do CALL
+            result = cursor.fetchone()
+            if result:
+                mensagem, sucesso = result
+                if sucesso:
+                    messages.success(request, mensagem)
+                else:
+                    messages.error(request, mensagem)
+            else:
+                messages.error(request, "Erro ao processar exclusão.")
+                
+    except Exception as e:
+        logger.error(f"Erro ao excluir disponibilidade: {str(e)}")
+        messages.error(request, f"Erro ao excluir disponibilidade: {str(e)}")
     
     return redirect('medico_agenda')
 
 @login_required
 @role_required('medico')
 def medico_confirmar_consulta(request, consulta_id):
-    """Confirmar pedido de consulta"""
-    medico = Medico.objects.get(id_utilizador=request.user)
-    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_medico=medico)
+    """Confirmar pedido de consulta usando procedimento SQL"""
+    from django.db import connection
     
-    if consulta.estado == 'agendada':
-        consulta.medico_aceitou = True
+    try:
+        # Obter médico usando função SQL
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM obter_medico_por_utilizador(%s)
+            """, [request.user.id_utilizador])
+            
+            medico = cursor.fetchone()
+            
+        if not medico:
+            messages.error(request, "Perfil de médico não encontrado.")
+            return redirect('index')
         
-        # Se o paciente já aceitou, confirma a consulta
-        if consulta.paciente_aceitou:
-            consulta.estado = 'confirmada'
-            messages.success(request, f"Consulta com {consulta.id_paciente.id_utilizador.nome} confirmada!")
+        # Verificar se consulta pertence ao médico usando função SQL
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM verificar_consulta_medico(%s, %s)
+            """, [consulta_id, medico[0]])  # medico[0] é id_medico
+            
+            consulta_info = cursor.fetchone()
+            
+        if not consulta_info or not consulta_info[0]:  # consulta_info[0] é 'existe'
+            messages.error(request, "Consulta não encontrada ou não pertence a este médico.")
+            return redirect('medico_dashboard')
+        
+        # Chamar procedure para confirmar consulta
+        with connection.cursor() as cursor:
+            cursor.execute("CALL confirmar_consulta(%s, %s)", [
+                consulta_id,
+                'medico'
+            ])
+        messages.success(request, "Consulta confirmada!")
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "não encontrada" in error_msg:
+            messages.error(request, "Consulta não encontrada.")
+        elif "não pode ser confirmada" in error_msg:
+            messages.error(request, "Esta consulta não pode ser confirmada.")
         else:
-            # Senão, mantém como agendada esperando aceitação do paciente
-            messages.success(request, f"Aceitaste a consulta. A aguardar aceitação do paciente.")
-        
-        consulta.save()
-    else:
-        messages.warning(request, "Esta consulta não pode ser confirmada.")
+            messages.error(request, f"Erro ao confirmar consulta: {error_msg}")
     
     return redirect('medico_dashboard')
 
@@ -498,54 +515,124 @@ def medico_confirmar_consulta(request, consulta_id):
 @login_required
 @role_required('medico')
 def medico_recusar_consulta(request, consulta_id):
-    """Recusar pedido de consulta"""
-    medico = Medico.objects.get(id_utilizador=request.user)
-    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_medico=medico)
+    """Recusar pedido de consulta usando procedimento SQL"""
+    from django.db import connection
     
-    if request.method == 'POST':
-        motivo = request.POST.get('motivo', 'Recusado pelo médico')
-        consulta.estado = 'cancelada'
-        consulta.motivo_consulta = f"[RECUSADA] {motivo}"
-        consulta.save()
-        messages.success(request, "Consulta recusada.")
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM obter_medico_por_utilizador(%s)
+            """, [request.user.id_utilizador])
+            
+            medico = cursor.fetchone()
+            
+        if not medico:
+            messages.error(request, "Perfil de médico não encontrado.")
+            return redirect('index')
+
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM obter_consulta_completa(%s)
+            """, [consulta_id])
+            
+            consulta_info = cursor.fetchone()
+            
+        if not consulta_info:
+            messages.error(request, "Consulta não encontrada.")
+            return redirect('medico_dashboard')
+        
+        if request.method == 'POST':
+            motivo = request.POST.get('motivo', 'Recusado pelo médico')
+            
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    CALL recusar_consulta_medico(%s, %s, %s, NULL, NULL)
+                """, [consulta_id, medico[0], motivo])
+
+                result = cursor.fetchone()
+                
+            if result and result[1]:  # result[1] é 'sucesso'
+                messages.success(request, result[0])  # result[0] é 'mensagem'
+            elif result:
+                messages.error(request, result[0])
+            else:
+                messages.error(request, "Erro ao processar recusa.")
+                
+            return redirect('medico_dashboard')
+   
+        consulta_data = {
+            'id_consulta': consulta_info[0],
+            'data_consulta': consulta_info[1],
+            'hora_consulta': consulta_info[2],
+            'estado': consulta_info[3],
+            'motivo': consulta_info[4],
+            'paciente_nome': consulta_info[7],
+            'medico_nome': consulta_info[9],
+        }
+        
+        return render(request, 'medico/recusar_consulta.html', {'consulta': consulta_data})
+        
+    except Exception as e:
+        messages.error(request, f"Erro: {str(e)}")
         return redirect('medico_dashboard')
-    
-    return render(request, 'medico/recusar_consulta.html', {'consulta': consulta})
 
 
 @login_required
 @role_required('medico')
 def medico_cancelar_consulta(request, consulta_id):
-    """Médico cancela uma consulta confirmada (até 24h antes)"""
-    from datetime import datetime, timedelta
-    from django.utils import timezone
+    """Médico cancela uma consulta usando procedure SQL"""
+    from django.db import connection
     
-    medico = Medico.objects.get(id_utilizador=request.user)
-    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_medico=medico)
-    
-    # Combinar data e hora da consulta
-    consulta_datetime = datetime.combine(consulta.data_consulta, consulta.hora_consulta)
-    if timezone.is_aware(consulta_datetime):
-        consulta_datetime = timezone.make_naive(consulta_datetime)
-    consulta_datetime = timezone.make_aware(consulta_datetime)
-    
-    # Verificar se faltam mais de 24 horas
-    tempo_restante = consulta_datetime - timezone.now()
-    
-    if tempo_restante < timedelta(hours=24):
-        messages.error(request, "Não é possível cancelar consultas com menos de 24 horas de antecedência.")
-        return redirect('medico_dashboard')
-    
-    if consulta.estado in ['agendada', 'confirmada']:
-        consulta.estado = 'cancelada'
-        consulta.motivo = "Cancelada pelo médico"
-        consulta.save()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM obter_medico_por_utilizador(%s)
+            """, [request.user.id_utilizador])
+            
+            medico = cursor.fetchone()
+            
+        if not medico:
+            messages.error(request, "Perfil de médico não encontrado.")
+            return redirect('index')
+        
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT * FROM verificar_consulta_medico(%s, %s)
+            """, [consulta_id, medico[0]])
+            
+            consulta_info = cursor.fetchone()
+            
+        if not consulta_info or not consulta_info[0]:
+            messages.error(request, "Consulta não encontrada ou não pertence a este médico.")
+            return redirect('medico_dashboard')
+     
+        motivo = request.POST.get("motivo", "Cancelada pelo médico")
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CALL cancelar_consulta(%s, %s, %s, %s)",
+                [
+                    consulta_id,
+                    motivo,
+                    request.user.id_utilizador,
+                    'medico'
+                ]
+            )
         messages.success(request, "Consulta cancelada com sucesso.")
-    else:
-        messages.warning(request, "Esta consulta não pode ser cancelada.")
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "24 horas" in error_msg:
+            messages.error(request, "Não é possível cancelar consultas com menos de 24 horas de antecedência.")
+        elif "já está cancelada" in error_msg:
+            messages.info(request, "Esta consulta já está cancelada.")
+        elif "não pode ser cancelada" in error_msg:
+            messages.error(request, "Esta consulta não pode ser cancelada.")
+        elif "não encontrada" in error_msg:
+            messages.error(request, "Consulta não encontrada.")
+        else:
+            messages.error(request, f"Erro ao cancelar consulta: {error_msg}")
     
     return redirect('medico_dashboard')
-
 
 @login_required
 @role_required('medico')
@@ -680,93 +767,190 @@ def medico_registar_consulta(request, consulta_id):
     
     return render(request, 'medico/registar_consulta.html', context)
 
-
 @login_required
 @role_required('medico')
-@login_required
-@role_required('medico')
-def medico_agendar_consulta(request):
-    """Permite ao médico agendar uma consulta diretamente para um paciente"""
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
-        messages.error(request, "Perfil de médico não encontrado.")
-        return redirect('index')
+def agendar_consulta(request):
+    from django.db import connection
+    from datetime import datetime, timedelta
     
-    if request.method == 'POST':
-        paciente_id = request.POST.get('paciente_id')
-        data_consulta = request.POST.get('data_consulta')
-        hora_consulta = request.POST.get('hora_consulta')
-        id_disponibilidade = request.POST.get('id_disponibilidade')
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id_medico FROM obter_medico_por_utilizador_id(%s)", [request.user.id_utilizador])
+            result = cursor.fetchone()
+            if not result:
+                messages.error(request, "Não foi possível encontrar o registo de médico.")
+                return redirect("medico_dashboard")
+            medico_id = result[0]
+    except Exception as e:
+        messages.error(request, f"Erro ao obter dados do médico: {str(e)}")
+        return redirect("medico_dashboard")
+
+    if request.method == "POST":
+        paciente_id = request.POST.get("paciente_id")
+        disp_id = request.POST.get("disponibilidade_id")
+        hora_consulta_str = request.POST.get("hora_consulta")
+        motivo = request.POST.get("motivo", "")
+        
+        if not paciente_id or not disp_id or not hora_consulta_str:
+            messages.error(request, "Preencha todos os campos obrigatórios.")
+            return redirect("medico_agenda")
         
         try:
-            paciente = Paciente.objects.get(id_paciente=paciente_id)
+            hora_consulta = datetime.strptime(hora_consulta_str, "%H:%M").time()
+
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT d.data, d.id_medico, d.id_unidade
+                    FROM "DISPONIBILIDADE" d
+                    WHERE d.id_disponibilidade = %s
+                    AND d.id_medico = %s
+                    AND d.status_slot IN ('disponivel', 'available')
+                """, [disp_id, medico_id])
+                disp_data = cursor.fetchone()
+                
+                if not disp_data:
+                    messages.error(request, "Disponibilidade não encontrada ou não pertence a este médico.")
+                    return redirect("medico_agenda")
+                
+                data_consulta = disp_data[0]
+
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "CALL marcar_consulta(%s, %s, %s, %s, %s)",
+                        [paciente_id, medico_id, data_consulta, hora_consulta, motivo or "Consulta agendada pelo médico"]
+                    )
+                messages.success(request, "Consulta marcada com sucesso!")
+                return redirect("medico_agenda")
+                
+            except Exception as e:
+                messages.error(request, f"Erro ao marcar consulta: {str(e)}")
+                return redirect("medico_agenda")
             
-            # Validar data/hora
-            if not data_consulta or not hora_consulta:
-                messages.error(request, "Data e hora são obrigatórias.")
-                return redirect('medico_agendar_consulta')
-            
-            # Converter strings para objetos date e time
-            from datetime import datetime
-            data_obj = datetime.strptime(data_consulta, '%Y-%m-%d').date()
-            hora_obj = datetime.strptime(hora_consulta, '%H:%M').time()
-            
-            # Verificar se já existe consulta no mesmo horário para o médico
-            if Consulta.objects.filter(
-                id_medico=medico,
-                data_consulta=data_obj,
-                hora_consulta=hora_obj
-            ).exclude(estado='cancelada').exists():
-                messages.error(request, "Já existe uma consulta agendada neste horário.")
-                return redirect('medico_agendar_consulta')
-            
-            # Se foi selecionada uma disponibilidade, associá-la
-            disponibilidade = None
-            if id_disponibilidade:
-                try:
-                    disponibilidade = Disponibilidade.objects.get(id_disponibilidade=id_disponibilidade)
-                except Disponibilidade.DoesNotExist:
-                    pass
-            
-            # Criar a consulta com estado='confirmada' já que o médico está agendando
-            consulta = Consulta.objects.create(
-                id_paciente=paciente,
-                id_medico=medico,
-                id_disponibilidade=disponibilidade,
-                data_consulta=data_obj,
-                hora_consulta=hora_obj,
-                estado='confirmada',  # Médico já confirma ao criar
-                medico_aceitou=True,  # Médico já aceita automaticamente
-                paciente_aceitou=True  # Assumir que paciente também aceita (ou pode ser False)
-            )
-            
-            messages.success(request, f"Consulta agendada com sucesso para {paciente.id_utilizador.nome}.")
-            return redirect('medico_agenda')
-            
-        except Paciente.DoesNotExist:
-            messages.error(request, "Paciente não encontrado.")
-            return redirect('medico_agendar_consulta')
         except Exception as e:
-            messages.error(request, f"Erro ao agendar consulta: {str(e)}")
-            return redirect('medico_agendar_consulta')
+            messages.error(request, f"Erro ao processar dados: {str(e)}")
+            return redirect("medico_agenda")
+        
+    unidade_id = request.GET.get("unidade")
+    data_q = request.GET.get("data")
     
-    # GET: mostrar formulário
-    pacientes = Paciente.objects.select_related('id_utilizador').filter(id_utilizador__ativo=True).order_by('id_utilizador__nome')
+    pacientes = []
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_pacientes_ativos()")
+            columns = [col[0] for col in cursor.description]
+            for row in cursor.fetchall():
+                pacientes.append(dict(zip(columns, row)))
+        logger.info(f"✓ Pacientes obtidos com sucesso: {len(pacientes)} encontrados")
+        if pacientes:
+            logger.info(f"  Primeiro paciente: {pacientes[0]}")
+    except Exception as e:
+        logger.error(f"✗ Erro ao obter pacientes: {str(e)}")
+        messages.error(request, f"Erro ao carregar pacientes: {str(e)}")
     
-    # Buscar disponibilidades futuras do médico
-    from datetime import date
-    hoje = date.today()
-    disponibilidades = Disponibilidade.objects.filter(
-        id_medico=medico,
-        data__gte=hoje
-    ).exclude(status_slot__iexact='booked').order_by('data', 'hora_inicio')[:50]
+    unidades = []
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_unidades_saude()")
+            columns = [col[0] for col in cursor.description]
+            for row in cursor.fetchall():
+                unidades.append(dict(zip(columns, row)))
+    except Exception as e:
+        logger.error(f"✗ Erro ao obter unidades: {str(e)}")
+        messages.error(request, f"Erro ao carregar unidades: {str(e)}")
+
+    disponibilidades = []
     
+    def gerar_slots(disponibilidade_row, disp_id):
+        slots = []
+        hora_inicio = disponibilidade_row[2]
+        hora_fim = disponibilidade_row[3]
+        duracao = disponibilidade_row[4]
+        
+        if not hora_inicio or not hora_fim or not duracao:
+            return slots
+        
+        hora_atual = hora_inicio
+        with connection.cursor() as cursor_slots:
+            while hora_atual < hora_fim:
+                hora_atual_dt = datetime.combine(datetime.today(), hora_atual)
+                hora_fim_slot = (hora_atual_dt + timedelta(minutes=duracao)).time()
+                
+                if hora_fim_slot > hora_fim:
+                    break
+                
+                try:
+                    cursor_slots.execute("SELECT verificar_slot_disponivel(%s, %s)", [disp_id, hora_atual])
+                    disponivel = cursor_slots.fetchone()[0]
+                except:
+                    disponivel = True
+                
+                slots.append({
+                    'time': hora_atual.strftime("%H:%M"),
+                    'available': disponivel
+                })
+                
+                hora_atual = hora_fim_slot
+        
+        return slots
+    
+    # Filtrar disponibilidades 
+    try:
+        query_params = [medico_id]
+        query_conditions = ["d.id_medico = %s", "d.status_slot IN ('disponivel', 'available')", "d.data >= CURRENT_DATE"]
+        
+        if unidade_id:
+            query_conditions.append("d.id_unidade = %s")
+            query_params.append(unidade_id)
+        
+        if data_q:
+            query_conditions.append("d.data = %s")
+            query_params.append(data_q)
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT d.id_disponibilidade, d.data, d.hora_inicio, d.hora_fim,
+                       d.duracao_slot, d.status_slot, un.nome_unidade
+                FROM "DISPONIBILIDADE" d
+                JOIN "UNIDADE_DE_SAUDE" un ON d.id_unidade = un.id_unidade
+                WHERE """ + " AND ".join(query_conditions) + """
+                ORDER BY d.data, d.hora_inicio
+                LIMIT 50
+            """
+            cursor.execute(query, query_params)
+            
+            for row in cursor.fetchall():
+                disp_id = row[0]
+                slots = gerar_slots(row, disp_id)
+                
+                disponibilidades.append({
+                    'id_disponibilidade': disp_id,
+                    'data': row[1],
+                    'hora_inicio': row[2],
+                    'hora_fim': row[3],
+                    'duracao_slot': row[4],
+                    'status_slot': row[5],
+                    'unidade_nome': row[6] if row[6] else "Não especificada",
+                    'slots': slots
+                })
+    except Exception as e:
+        logger.error(f"✗ Erro ao obter disponibilidades: {str(e)}")
+        messages.error(request, f"Erro ao carregar disponibilidades: {str(e)}")
+
     context = {
-        'pacientes': pacientes,
-        'disponibilidades': disponibilidades,
+        "pacientes": pacientes,
+        "unidades": unidades,
+        "disponibilidades": disponibilidades,
+        "selected": {
+            "unidade": unidade_id,
+            "data": data_q,
+        },
     }
-    return render(request, 'medico/agendar_consulta.html', context)
+
+    return render(request, "medico/agendar_consulta.html", context)
 
 
 @login_required
@@ -779,9 +963,21 @@ def medico_verificar_disponibilidade(request):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
     try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
-        return JsonResponse({'error': 'Medico not found'}, status=404)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT verificar_utilizador_eh_medico(%s)", [request.user.id_utilizador])
+            eh_medico = cursor.fetchone()[0]
+            
+            if not eh_medico:
+                return JsonResponse({'error': 'Médico not found'}, status=404)
+            
+            cursor.execute("SELECT id_medico FROM obter_medico_por_utilizador_id(%s)", [request.user.id_utilizador])
+            result = cursor.fetchone()
+            if not result:
+                return JsonResponse({'error': 'Médico not found'}, status=404)
+            
+            medico_id = result[0]
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
     
     data = request.POST.get('data')
     hora_inicio = request.POST.get('hora_inicio')
@@ -794,14 +990,11 @@ def medico_verificar_disponibilidade(request):
         data_obj = datetime.strptime(data, '%Y-%m-%d').date()
         hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
         hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
-        
-        # Check if disponibilidade exists that covers this time period
-        disponibilidade_exists = Disponibilidade.objects.filter(
-            id_medico=medico,
-            data=data_obj,
-            hora_inicio__lte=hora_inicio_obj,
-            hora_fim__gte=hora_fim_obj
-        ).exclude(status_slot__iexact='booked').exists()
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT validar_horario_disponibilidade(%s, %s, %s, %s)
+            """, [data_obj, hora_inicio_obj, hora_fim_obj, medico_id])
+            disponibilidade_exists = cursor.fetchone()[0]
         
         return JsonResponse({'exists': disponibilidade_exists})
         

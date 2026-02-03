@@ -39,17 +39,23 @@
                 
                 <div class="form-group">
                     <label for="paciente_id">Paciente *</label>
+                    {% if pacientes %}
                     <select id="paciente_id" name="paciente_id" required class="form-control">
                         <option value="">Selecione um paciente</option>
                         {% for paciente in pacientes %}
                         <option value="{{ paciente.id_paciente }}">
-                            {{ paciente.id_utilizador.nome }} 
-                            {% if paciente.id_utilizador.n_utente %}
-                                (Nº Utente: {{ paciente.id_utilizador.n_utente }})
+                            {{ paciente.nome }} 
+                            {% if paciente.n_utente %}
+                                (Nº Utente: {{ paciente.n_utente }})
                             {% endif %}
                         </option>
                         {% endfor %}
                     </select>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        ⚠️ Nenhum paciente ativo encontrado. Certifique-se de que existem pacientes registados e com conta ativa.
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="form-row">

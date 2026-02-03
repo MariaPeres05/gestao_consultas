@@ -26,7 +26,7 @@ urlpatterns = [
     # URLs do Médico
     path('medico/dashboard/', views_medico.medico_dashboard, name='medico_dashboard'),
     path('medico/agenda/', views_medico.medico_agenda, name='medico_agenda'),
-    path('medico/agendar/', views_medico.medico_agendar_consulta, name='medico_agendar_consulta'),
+    path('medico/agendar/', views_medico.agendar_consulta, name='medico_agendar_consulta'),
     path('medico/verificar-disponibilidade/', views_medico.medico_verificar_disponibilidade, name='medico_verificar_disponibilidade'),
     path('medico/consulta/<int:consulta_id>/', views_medico.medico_detalhes_consulta, name='medico_detalhes_consulta'),
     path('medico/consulta/<int:consulta_id>/confirmar/', views_medico.medico_confirmar_consulta, name='medico_confirmar_consulta'),

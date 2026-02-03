@@ -187,8 +187,8 @@
                         <td>{{ c.id_consulta }}</td>
                         <td>{{ c.data_consulta|date:"d/m/Y" }}</td>
                         <td>{{ c.hora_consulta }}</td>
-                        <td>{{ c.id_medico.id_utilizador.nome }}</td>
-                        <td>{{ c.id_disponibilidade.id_unidade.nome_unidade }}</td>
+                        <td>{{ c.medico_nome }}</td>
+                        <td>{{ c.unidade_nome }}</td>
                         <td>
                             {% if c.estado == 'realizada' %}
                                 <span class="badge realizada">Realizada</span>

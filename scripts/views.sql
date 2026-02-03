@@ -1,125 +1,290 @@
--- View detalhada de consultas
-CREATE OR REPLACE VIEW vw_consultas_detalhadas AS
+-- ============================================================================
+-- VIEWS DO SISTEMA 
+-- ============================================================================
+
+-- View para consultas completas com informações relacionadas 
+CREATE OR REPLACE VIEW vw_consultas_completas AS
 SELECT 
     c.id_consulta,
     c.data_consulta,
     c.hora_consulta,
     c.estado,
     c.motivo,
+    c.medico_aceitou,
+    c.paciente_aceitou,
+    c.paciente_presente,
+    c.notas_clinicas,
+    c.observacoes,
+    c.hora_checkin,
+    c.hora_inicio_real,
+    c.hora_fim_real,
+    c.criado_em,
+    c.modificado_em,
     
-    -- Paciente
+    -- Dados do paciente
     p.id_paciente,
     u_p.nome as paciente_nome,
     u_p.email as paciente_email,
     u_p.telefone as paciente_telefone,
-    u_p.n_utente as paciente_n_utente,
-    p.data_nasc as paciente_data_nasc,
-    p.genero as paciente_genero,
+    u_p.n_utente,
+    p.data_nasc,
+    p.genero,
+    p.alergias,
+    p.observacoes as observacoes_paciente,
     
-    -- Médico
+    -- Dados do médico
     m.id_medico,
     u_m.nome as medico_nome,
     u_m.email as medico_email,
+    u_m.telefone as medico_telefone,
     m.numero_ordem as medico_numero_ordem,
-    e.nome_especialidade as especialidade,
     
-    -- Unidade
-    d.id_unidade,
-    us.nome_unidade as unidade_nome,
-    us.tipo_unidade,
+    -- Especialidade do médico
+    e.id_especialidade,
+    e.nome_especialidade,
+    e.descricao as especialidade_descricao,
     
-    -- Fatura
-    f.valor as fatura_valor,
-    f.estado as fatura_estado,
-    f.data_pagamento as fatura_data_pagamento,
+    -- Unidade de saúde
+    d.id_disponibilidade,
+    un.id_unidade,
+    un.nome_unidade,
+    un.morada_unidade,
+    un.tipo_unidade,
     
-    -- Check-in
-    c.paciente_presente,
-    c.hora_checkin,
+    -- Criador e modificador
+    u_c.nome as criado_por_nome,
+    u_mf.nome as modificado_por_nome,
     
-    -- Audit trail
-    c.criado_em,
-    c.modificado_em
+    -- Cálculos úteis
+    CASE 
+        WHEN (c.data_consulta || ' ' || c.hora_consulta)::timestamp - INTERVAL '24 hours' > CURRENT_TIMESTAMP 
+        THEN TRUE 
+        ELSE FALSE 
+    END as pode_cancelar_24h,
     
+    EXTRACT(EPOCH FROM (c.data_consulta || ' ' || c.hora_consulta)::timestamp - CURRENT_TIMESTAMP) / 3600 as horas_restantes
+
 FROM "CONSULTAS" c
-LEFT JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
-LEFT JOIN "UTILIZADOR" u_p ON p.id_utilizador = u_p.id_utilizador
-LEFT JOIN "MEDICOS" m ON c.id_medico = m.id_medico
-LEFT JOIN "UTILIZADOR" u_m ON m.id_utilizador = u_m.id_utilizador
+JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+JOIN "core_utilizador" u_p ON p.id_utilizador = u_p.id_utilizador
+JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+JOIN "core_utilizador" u_m ON m.id_utilizador = u_m.id_utilizador
 LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
 LEFT JOIN "DISPONIBILIDADE" d ON c.id_disponibilidade = d.id_disponibilidade
-LEFT JOIN "UNIDADE_DE_SAUDE" us ON d.id_unidade = us.id_unidade
-LEFT JOIN "FATURAS" f ON c.id_consulta = f.id_consulta;
+LEFT JOIN "UNIDADE_DE_SAUDE" un ON d.id_unidade = un.id_unidade
+LEFT JOIN "core_utilizador" u_c ON c.criado_por = u_c.id_utilizador
+LEFT JOIN "core_utilizador" u_mf ON c.modificado_por = u_mf.id_utilizador;
 
--- View de disponibilidade dos médicos
-CREATE OR REPLACE VIEW vw_medico_disponibilidade AS
+-- View para faturas com informações completas
+CREATE OR REPLACE VIEW vw_faturas_completas AS
+SELECT 
+    f.id_fatura,
+    f.valor,
+    f.metodo_pagamento,
+    f.estado as estado_fatura,
+    f.data_pagamento,
+    
+    -- Dados da consulta
+    c.id_consulta,
+    c.data_consulta,
+    c.hora_consulta,
+    c.estado as estado_consulta,
+    
+    -- Dados do paciente
+    p.id_paciente,
+    u_p.nome as paciente_nome,
+    u_p.email as paciente_email,
+    u_p.n_utente,
+    
+    -- Dados do médico
+    m.id_medico,
+    u_m.nome as medico_nome,
+    u_m.email as medico_email,
+    
+    -- Especialidade
+    e.nome_especialidade,
+    
+    -- Dias em atraso (se aplicável)
+    CASE 
+        WHEN f.estado = 'pendente' AND f.data_pagamento IS NULL 
+        THEN (CURRENT_DATE - c.data_consulta)
+        ELSE 0
+    END as dias_atraso,
+    
+    -- Valor com possível multa por atraso
+    CASE 
+        WHEN f.estado = 'pendente' AND f.data_pagamento IS NULL 
+             AND (CURRENT_DATE - c.data_consulta) > 30
+        THEN f.valor * 1.10  -- 10% de multa após 30 dias
+        ELSE f.valor
+    END as valor_com_multa
+    
+FROM "FATURAS" f
+JOIN "CONSULTAS" c ON f.id_consulta = c.id_consulta
+JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+JOIN "core_utilizador" u_p ON p.id_utilizador = u_p.id_utilizador
+JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+JOIN "core_utilizador" u_m ON m.id_utilizador = u_m.id_utilizador
+LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade;
+
+-- View para disponibilidades com informações úteis
+CREATE OR REPLACE VIEW vw_disponibilidades AS
+SELECT 
+    d.id_disponibilidade,
+    d.data,
+    d.hora_inicio,
+    d.hora_fim,
+    d.duracao_slot,
+    d.status_slot,
+    
+    -- Médico
+    m.id_medico,
+    u.nome as medico_nome,
+    u.email as medico_email,
+    m.numero_ordem,
+    
+    -- Especialidade
+    e.id_especialidade,
+    e.nome_especialidade,
+    
+    -- Unidade
+    un.id_unidade,
+    un.nome_unidade,
+    un.morada_unidade,
+    un.tipo_unidade,
+    
+    -- Região
+    r.id_regiao,
+    r.nome as regiao_nome,
+    r.tipo_regiao,
+    
+    -- Slots ocupados
+    (SELECT COUNT(*) 
+     FROM "CONSULTAS" c 
+     WHERE c.id_disponibilidade = d.id_disponibilidade 
+     AND c.estado NOT IN ('cancelada')) as slots_ocupados,
+    
+    -- Slots disponíveis
+    ((EXTRACT(EPOCH FROM (d.hora_fim - d.hora_inicio)) / 60) / d.duracao_slot) 
+    - (SELECT COUNT(*) 
+       FROM "CONSULTAS" c 
+       WHERE c.id_disponibilidade = d.id_disponibilidade 
+       AND c.estado NOT IN ('cancelada')) as slots_disponiveis
+
+FROM "DISPONIBILIDADE" d
+JOIN "MEDICOS" m ON d.id_medico = m.id_medico
+JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+JOIN "UNIDADE_DE_SAUDE" un ON d.id_unidade = un.id_unidade
+JOIN "REGIAO" r ON un.id_regiao = r.id_regiao;
+
+-- View para estatísticas de médicos (USANDO TABELAS BASE)
+CREATE OR REPLACE VIEW vw_estatisticas_medicos AS
 SELECT 
     m.id_medico,
     u.nome as medico_nome,
-    e.nome_especialidade as especialidade,
+    u.email as medico_email,
+    e.nome_especialidade,
     
-    -- Total de horas disponíveis (últimos 30 dias)
-    COALESCE(SUM(EXTRACT(EPOCH FROM (d.hora_fim - d.hora_inicio))/3600), 0)::INTEGER as total_horas_disponiveis,
+    -- Consultas
+    COUNT(DISTINCT c.id_consulta) as total_consultas,
+    COUNT(DISTINCT CASE WHEN c.estado = 'realizada' THEN c.id_consulta END) as consultas_realizadas,
+    COUNT(DISTINCT CASE WHEN c.estado = 'agendada' THEN c.id_consulta END) as consultas_agendadas,
+    COUNT(DISTINCT CASE WHEN c.estado = 'confirmada' THEN c.id_consulta END) as consultas_confirmadas,
+    COUNT(DISTINCT CASE WHEN c.estado = 'cancelada' THEN c.id_consulta END) as consultas_canceladas,
     
-    -- Slots disponíveis
-    COUNT(DISTINCT d.id_disponibilidade) as total_slots_disponiveis,
+    -- Disponibilidades
+    COUNT(DISTINCT d.id_disponibilidade) as total_disponibilidades,
+    COUNT(DISTINCT CASE WHEN d.status_slot IN ('available', 'disponivel') THEN d.id_disponibilidade END) as disponibilidades_disponiveis,
+    COUNT(DISTINCT CASE WHEN d.status_slot = 'booked' THEN d.id_disponibilidade END) as disponibilidades_ocupadas,
     
-    -- Slots ocupados
-    COUNT(DISTINCT c.id_consulta) as slots_ocupados,
+    -- Receitas
+    COUNT(DISTINCT re.id_receita) as total_receitas,
     
     -- Taxa de ocupação
     CASE 
         WHEN COUNT(DISTINCT d.id_disponibilidade) > 0 
-        THEN ROUND((COUNT(DISTINCT c.id_consulta)::DECIMAL / COUNT(DISTINCT d.id_disponibilidade)::DECIMAL) * 100, 2)
-        ELSE 0 
-    END as taxa_ocupacao,
+        THEN ROUND(
+            COUNT(DISTINCT CASE WHEN d.status_slot = 'booked' THEN d.id_disponibilidade END)::DECIMAL / 
+            COUNT(DISTINCT d.id_disponibilidade)::DECIMAL * 100, 2
+        )
+        ELSE 0
+    END as taxa_ocupacao_percent,
     
-    -- Próxima disponibilidade
-    MIN(d.data) as proxima_disponibilidade
+    -- Pacientes atendidos
+    COUNT(DISTINCT c.id_paciente) as pacientes_atendidos
     
 FROM "MEDICOS" m
-JOIN "UTILIZADOR" u ON m.id_utilizador = u.id_utilizador
+JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
 LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
-LEFT JOIN "DISPONIBILIDADE" d ON m.id_medico = d.id_medico 
-    AND d.data >= CURRENT_DATE 
-    AND d.status_slot = 'disponivel'
-LEFT JOIN "CONSULTAS" c ON d.id_disponibilidade = c.id_disponibilidade 
-    AND c.estado IN ('agendada', 'confirmada')
-GROUP BY m.id_medico, u.nome, e.nome_especialidade;
+LEFT JOIN "CONSULTAS" c ON m.id_medico = c.id_medico
+LEFT JOIN "DISPONIBILIDADE" d ON m.id_medico = d.id_medico
+LEFT JOIN "RECEITAS" re ON c.id_consulta = re.id_consulta
+GROUP BY m.id_medico, u.nome, u.email, e.nome_especialidade;
 
--- View de histórico do paciente
-CREATE OR REPLACE VIEW vw_paciente_historico AS
+-- View para dashboard administrativo
+CREATE OR REPLACE VIEW vw_dashboard_admin AS
 SELECT 
-    p.id_paciente,
-    u.nome as paciente_nome,
-    u.email,
-    u.telefone,
-    u.n_utente,
-    p.data_nasc,
-    p.genero,
-    p.morada,
+    -- Totais gerais
+    (SELECT COUNT(*) FROM "core_utilizador") as total_utilizadores,
+    (SELECT COUNT(*) FROM "core_utilizador" WHERE role = 'paciente') as total_pacientes,
+    (SELECT COUNT(*) FROM "core_utilizador" WHERE role = 'medico') as total_medicos,
+    (SELECT COUNT(*) FROM "core_utilizador" WHERE role = 'enfermeiro') as total_enfermeiros,
+    (SELECT COUNT(*) FROM "CONSULTAS") as total_consultas,
+    (SELECT COUNT(*) FROM "FATURAS") as total_faturas,
+    (SELECT COUNT(*) FROM "RECEITAS") as total_receitas,
     
-    -- Estatísticas de consultas
-    COUNT(c.id_consulta) as total_consultas,
-    SUM(CASE WHEN c.estado = 'realizada' THEN 1 ELSE 0 END) as consultas_realizadas,
-    SUM(CASE WHEN c.estado IN ('agendada', 'confirmada') THEN 1 ELSE 0 END) as consultas_agendadas,
-    SUM(CASE WHEN c.estado = 'cancelada' THEN 1 ELSE 0 END) as consultas_canceladas,
+    -- Consultas por estado
+    (SELECT COUNT(*) FROM "CONSULTAS" WHERE estado = 'agendada') as consultas_agendadas,
+    (SELECT COUNT(*) FROM "CONSULTAS" WHERE estado = 'confirmada') as consultas_confirmadas,
+    (SELECT COUNT(*) FROM "CONSULTAS" WHERE estado = 'realizada') as consultas_realizadas,
+    (SELECT COUNT(*) FROM "CONSULTAS" WHERE estado = 'cancelada') as consultas_canceladas,
     
-    -- Datas importantes
-    MAX(c.data_consulta) as ultima_consulta,
-    MIN(CASE WHEN c.estado IN ('agendada', 'confirmada') AND c.data_consulta >= CURRENT_DATE THEN c.data_consulta END) as proxima_consulta,
+    -- Faturas por estado
+    (SELECT COUNT(*) FROM "FATURAS" WHERE estado = 'pendente') as faturas_pendentes,
+    (SELECT COUNT(*) FROM "FATURAS" WHERE estado = 'paga') as faturas_pagas,
+    (SELECT COUNT(*) FROM "FATURAS" WHERE estado = 'cancelada') as faturas_canceladas,
     
-    -- Valor gasto
-    SUM(COALESCE(f.valor, 0)) as valor_total_gasto,
+    -- Valor total em faturas
+    (SELECT COALESCE(SUM(valor), 0) FROM "FATURAS" WHERE estado = 'paga') as valor_total_pago,
+    (SELECT COALESCE(SUM(valor), 0) FROM "FATURAS" WHERE estado = 'pendente') as valor_total_pendente,
     
-    -- Diversidade
-    COUNT(DISTINCT c.id_medico) as medicos_diferentes,
-    COUNT(DISTINCT m.id_especialidade) as especialidades_diferentes
+    -- Consultas hoje
+    (SELECT COUNT(*) FROM "CONSULTAS" WHERE data_consulta = CURRENT_DATE) as consultas_hoje,
     
-FROM "PACIENTES" p
-JOIN "UTILIZADOR" u ON p.id_utilizador = u.id_utilizador
-LEFT JOIN "CONSULTAS" c ON p.id_paciente = c.id_paciente
-LEFT JOIN "MEDICOS" m ON c.id_medico = m.id_medico
-LEFT JOIN "FATURAS" f ON c.id_consulta = f.id_consulta AND f.estado = 'paga'
-GROUP BY p.id_paciente, u.nome, u.email, u.telefone, u.n_utente, p.data_nasc, p.genero, p.morada;
+    -- Consultas desta semana
+    (SELECT COUNT(*) FROM "CONSULTAS" 
+     WHERE data_consulta >= DATE_TRUNC('week', CURRENT_DATE) 
+     AND data_consulta < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '1 week') as consultas_semana,
+    
+    -- Consultas deste mês
+    (SELECT COUNT(*) FROM "CONSULTAS" 
+     WHERE data_consulta >= DATE_TRUNC('month', CURRENT_DATE) 
+     AND data_consulta < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as consultas_mes;
 
+
+-- View para disponibilidades com slots livres
+CREATE OR REPLACE VIEW vw_disponibilidades_com_slots AS
+SELECT 
+    d.id_disponibilidade,
+    d.id_medico,
+    d.data,
+    d.hora_inicio,
+    d.hora_fim,
+    d.duracao_slot,
+    d.status_slot,
+    un.nome_unidade,
+    un.morada_unidade,
+    -- Slots ocupados
+    (SELECT COUNT(*) 
+     FROM "CONSULTAS" c 
+     WHERE c.id_disponibilidade = d.id_disponibilidade 
+     AND c.estado NOT IN ('cancelada')) as slots_ocupados,
+    -- Slots disponíveis
+    ((EXTRACT(EPOCH FROM (d.hora_fim - d.hora_inicio)) / 60) / d.duracao_slot) 
+    - (SELECT COUNT(*) 
+       FROM "CONSULTAS" c 
+       WHERE c.id_disponibilidade = d.id_disponibilidade 
+       AND c.estado NOT IN ('cancelada')) as slots_disponiveis
+FROM "DISPONIBILIDADE" d
+JOIN "UNIDADE_DE_SAUDE" un ON d.id_unidade = un.id_unidade;

@@ -246,7 +246,7 @@
                                 </div>
                                 <div class="timeline-content">
                                     <h4>
-                                        {{ consulta.id_paciente.id_utilizador.nome }}
+                                        {{ consulta.paciente_nome }}
                                         <span class="badge badge-{{ consulta.estado }}">
                                             {{ consulta.estado|title }}
                                         </span>
@@ -296,9 +296,9 @@
                             <option value="">Selecione um paciente</option>
                             {% for paciente in pacientes %}
                             <option value="{{ paciente.id_paciente }}">
-                                {{ paciente.id_utilizador.nome }}
-                                {% if paciente.id_utilizador.n_utente %}
-                                    (Nº Utente: {{ paciente.id_utilizador.n_utente }})
+                                {{ paciente.nome }}
+                                {% if paciente.n_utente %}
+                                    (Nº Utente: {{ paciente.n_utente }})
                                 {% endif %}
                             </option>
                             {% endfor %}
@@ -522,6 +522,7 @@
     </div>
 
     <script>
+        // @ts-nocheck
         // Calendar data from Django
         const consultasData = [
             {% for consulta in consultas_mes %}
@@ -529,7 +530,7 @@
                 id: {{ consulta.id_consulta }},
                 date: '{{ consulta.data_consulta|date:"Y-m-d" }}',
                 time: '{{ consulta.hora_consulta }}',
-                patient: '{{ consulta.id_paciente.id_utilizador.nome|escapejs }}',
+                patient: '{{ consulta.paciente_nome|escapejs }}',
                 status: '{{ consulta.estado }}',
                 canCancel: {{ consulta.can_cancel_24h|yesno:"true,false" }},
                 type: 'consulta'
