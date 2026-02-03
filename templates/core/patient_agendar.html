@@ -55,7 +55,11 @@
                         <select name="medico">
                             <option value="">(Qualquer)</option>
                             {% for m in medicos %}
-                            <option value="{{ m.id_medico }}" {% if selected.medico == m.id_medico|stringformat:"s" %}selected{% endif %}>{{ m.id_utilizador.nome }}{% if m.numero_ordem %} — {{ m.numero_ordem }}{% endif %}</option>
+                            <option value="{{ m.id_medico }}" {% if selected.medico == m.id_medico|stringformat:"s" %}selected{% endif %}>
+                                {{ m.nome }} 
+                                {% if m.especialidade != "Sem especialidade" %} — {{ m.especialidade }}{% endif %}
+                                {% if not m.tem_disponibilidade %} (Sem disponibilidade nesta unidade){% endif %}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -76,27 +80,39 @@
             {% for d in disponibilidades %}
             <div class="slot">
                 <div class="slot-info">
-                    <h4>{{ d.id_medico.id_utilizador.nome }}</h4>
+                    <h4>{{ d.medico_nome }}</h4>
                     <p>
-                        🏥 {{ d.id_unidade.nome_unidade }}
-                        | 🔬 {{ d.id_medico.id_especialidade.nome_especialidade }}
+                        🏥 {{ d.unidade_nome }}
+                        {% if d.especialidade_nome != "Sem especialidade" %}
+                        | 🔬 {{ d.especialidade_nome }}
+                        {% endif %}
                         <br>
                         📅 {{ d.data|date:"d/m/Y" }}
                         • 🕒 {{ d.hora_inicio }} - {{ d.hora_fim }}
+                        • ⏱️ {{ d.duracao_slot }} minutos por slot
                     </p>
                 </div>
-                <form method="post">
+                <form method="post" action="{% url 'marcar_consulta' %}">
                     {% csrf_token %}
                     <input type="hidden" name="disponibilidade_id" value="{{ d.id_disponibilidade }}">
                     <div class="form-group" style="margin-top: 10px;">
                         <label for="hora_consulta_{{ d.id_disponibilidade }}">Selecione o horário de início:</label>
                         <select name="hora_consulta" id="hora_consulta_{{ d.id_disponibilidade }}" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
                             <option value="">Escolha um horário...</option>
-                            {% for slot in d.time_slots %}
-                                <option value="{{ slot.time }}" {% if not slot.available %}disabled{% endif %}>
-                                    {{ slot.time }} {% if not slot.available %}(Ocupado){% endif %}
-                                </option>
-                            {% endfor %}
+                            {% comment %} Gerar slots de tempo baseados na duração {% endcomment %}
+                            {% with start_time=d.hora_inicio end_time=d.hora_fim duration=d.duracao_slot %}
+                                {% for slot in d.slots %}
+                                    {% if slot.available %}
+                                        <option value="{{ slot.time }}">
+                                            {{ slot.time }}
+                                        </option>
+                                    {% else %}
+                                        <option value="{{ slot.time }}" disabled>
+                                            {{ slot.time }} (Ocupado)
+                                        </option>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endwith %}
                         </select>
                     </div>
                     <button type="submit" class="btn btn-success" style="margin-top: 10px;">✅ Marcar</button>
@@ -113,5 +129,73 @@
         </div>
         {% endif %}
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const especialidadeSelect = document.querySelector('[name="especialidade"]');
+        const unidadeSelect = document.querySelector('[name="unidade"]');
+        const medicoSelect = document.querySelector('[name="medico"]');
+        const dataInput = document.querySelector('[name="data"]');
+        
+        // Função para atualizar filtros
+        function updateFilters() {
+            const url = new URL(window.location.pathname, window.location.origin);
+            
+            if (especialidadeSelect.value) {
+                url.searchParams.set('especialidade', especialidadeSelect.value);
+            }
+            if (unidadeSelect.value) {
+                url.searchParams.set('unidade', unidadeSelect.value);
+            }
+            if (medicoSelect.value) {
+                url.searchParams.set('medico', medicoSelect.value);
+            }
+            if (dataInput.value) {
+                url.searchParams.set('data', dataInput.value);
+            }
+            
+            window.location.href = url.toString();
+        }
+        
+        // Adicionar event listeners
+        if (especialidadeSelect) {
+            especialidadeSelect.addEventListener('change', function() {
+                // Limpar médico quando especialidade muda
+                if (medicoSelect) medicoSelect.value = '';
+                updateFilters();
+            });
+        }
+        
+        if (unidadeSelect) {
+            unidadeSelect.addEventListener('change', function() {
+                // Limpar médico quando unidade muda
+                if (medicoSelect) medicoSelect.value = '';
+                updateFilters();
+            });
+        }
+        
+        if (medicoSelect) {
+            medicoSelect.addEventListener('change', updateFilters);
+        }
+        
+        if (dataInput) {
+            dataInput.addEventListener('change', updateFilters);
+        }
+        
+        // Adicionar um botão para limpar filtros
+        const filterForm = document.querySelector('form[method="get"]');
+        const clearButton = document.createElement('button');
+        clearButton.type = 'button';
+        clearButton.className = 'btn btn-secondary';
+        clearButton.textContent = '🧹 Limpar Filtros';
+        clearButton.style.marginLeft = '10px';
+        clearButton.addEventListener('click', function() {
+            window.location.href = "{% url 'marcar_consulta' %}";
+        });
+        
+        const submitButton = filterForm.querySelector('button[type="submit"]');
+        submitButton.parentNode.insertBefore(clearButton, submitButton.nextSibling);
+    });
+    </script>
 </body>
 </html>
