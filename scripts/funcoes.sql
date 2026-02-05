@@ -159,7 +159,7 @@ BEGIN
         u.telefone,
         u.n_utente,
         u.role,
-        u.data_registo,
+        u.data_registo::timestamp,
         u.ativo,
         u.email_verified
     FROM "UTILIZADOR" u
@@ -206,6 +206,743 @@ BEGIN
 END;
 $$;
 
+-- Função para listar utilizadores (admin) com filtro opcional por role
+CREATE OR REPLACE FUNCTION listar_utilizadores_admin(p_role VARCHAR DEFAULT NULL)
+RETURNS TABLE (
+    id_utilizador INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    role VARCHAR(20),
+    ativo BOOLEAN,
+    data_registo TIMESTAMPTZ,
+    role_display VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        u.id_utilizador,
+        u.nome,
+        u.email,
+        u.telefone,
+        u.role,
+        u.ativo,
+        u.data_registo::timestamp,
+        CASE u.role
+            WHEN 'admin' THEN 'Administrador'
+            WHEN 'medico' THEN 'Médico'
+            WHEN 'enfermeiro' THEN 'Enfermeiro'
+            WHEN 'paciente' THEN 'Paciente'
+            ELSE u.role
+        END AS role_display
+    FROM "core_utilizador" u
+    WHERE (p_role IS NULL OR p_role = '' OR u.role = p_role)
+    ORDER BY u.data_registo DESC;
+END;
+$$;
+
+-- Função para obter utilizador por ID (admin)
+CREATE OR REPLACE FUNCTION obter_utilizador_admin_por_id(p_id_utilizador INTEGER)
+RETURNS TABLE (
+    id_utilizador INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    role VARCHAR(20),
+    ativo BOOLEAN,
+    data_registo TIMESTAMP,
+    role_display VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        u.id_utilizador,
+        u.nome,
+        u.email,
+        u.telefone,
+        u.role,
+        u.ativo,
+        u.data_registo::timestamp,
+        CASE u.role
+            WHEN 'admin' THEN 'Administrador'
+            WHEN 'medico' THEN 'Médico'
+            WHEN 'enfermeiro' THEN 'Enfermeiro'
+            WHEN 'paciente' THEN 'Paciente'
+            ELSE u.role
+        END AS role_display
+    FROM "core_utilizador" u
+    WHERE u.id_utilizador = p_id_utilizador
+    LIMIT 1;
+END;
+$$;
+
+-- Função para verificar se email já existe (admin)
+CREATE OR REPLACE FUNCTION verificar_email_utilizador_admin(
+    p_email VARCHAR,
+    p_excluir_id INTEGER DEFAULT NULL
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_exists BOOLEAN;
+BEGIN
+    SELECT EXISTS(
+        SELECT 1
+        FROM "core_utilizador"
+        WHERE email = p_email
+        AND (p_excluir_id IS NULL OR id_utilizador <> p_excluir_id)
+    ) INTO v_exists;
+
+    RETURN v_exists;
+END;
+$$;
+
+-- Função para listar consultas (admin) com filtros
+CREATE OR REPLACE FUNCTION listar_consultas_admin(
+    p_estado VARCHAR DEFAULT NULL,
+    p_data DATE DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        u_p.nome AS paciente_nome,
+        u_m.nome AS medico_nome
+    FROM "CONSULTAS" c
+    JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+    JOIN "core_utilizador" u_p ON p.id_utilizador = u_p.id_utilizador
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" u_m ON m.id_utilizador = u_m.id_utilizador
+    WHERE (p_estado IS NULL OR p_estado = '' OR c.estado = p_estado)
+      AND (p_data IS NULL OR c.data_consulta = p_data)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC
+    LIMIT p_limite;
+END;
+$$;
+
+-- Função para obter consulta por ID (admin)
+CREATE OR REPLACE FUNCTION obter_consulta_admin_por_id(p_id_consulta INTEGER)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    motivo VARCHAR(255),
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.motivo,
+        u_p.nome AS paciente_nome,
+        u_m.nome AS medico_nome
+    FROM "CONSULTAS" c
+    JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+    JOIN "core_utilizador" u_p ON p.id_utilizador = u_p.id_utilizador
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" u_m ON m.id_utilizador = u_m.id_utilizador
+    WHERE c.id_consulta = p_id_consulta
+    LIMIT 1;
+END;
+$$;
+
+-- Função para listar disponibilidades (admin) com filtros
+CREATE OR REPLACE FUNCTION listar_disponibilidades_admin(
+    p_id_unidade INTEGER,
+    p_data DATE,
+    p_id_especialidade INTEGER DEFAULT NULL
+)
+RETURNS TABLE (
+    id_disponibilidade INTEGER,
+    hora_inicio TIME,
+    hora_fim TIME,
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        d.id_disponibilidade,
+        gs.slot_inicio::time AS hora_inicio,
+        (gs.slot_inicio + (d.duracao_slot || ' minutes')::interval)::time AS hora_fim,
+        u.nome AS medico_nome,
+        COALESCE(e.nome_especialidade, 'Sem especialidade') AS especialidade_nome
+    FROM "DISPONIBILIDADE" d
+    JOIN "MEDICOS" m ON d.id_medico = m.id_medico
+    JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    JOIN LATERAL generate_series(
+        d.hora_inicio,
+        d.hora_fim - (d.duracao_slot || ' minutes')::interval,
+        (d.duracao_slot || ' minutes')::interval
+    ) AS gs(slot_inicio) ON TRUE
+    WHERE d.id_unidade = p_id_unidade
+      AND d.data = p_data
+      AND d.status_slot IN ('disponivel', 'available')
+      AND (p_id_especialidade IS NULL OR m.id_especialidade = p_id_especialidade)
+      AND NOT EXISTS (
+          SELECT 1
+          FROM "CONSULTAS" c
+          WHERE c.id_disponibilidade = d.id_disponibilidade
+            AND c.hora_consulta = gs.slot_inicio::time
+            AND c.estado NOT IN ('cancelada')
+      )
+    ORDER BY gs.slot_inicio;
+END;
+$$;
+
+-- Função para obter disponibilidade por ID (admin)
+CREATE OR REPLACE FUNCTION obter_disponibilidade_admin_por_id(p_id_disponibilidade INTEGER)
+RETURNS TABLE (
+    id_disponibilidade INTEGER,
+    id_medico INTEGER,
+    data DATE,
+    hora_inicio TIME,
+    hora_fim TIME,
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        d.id_disponibilidade,
+        d.id_medico,
+        d.data,
+        d.hora_inicio,
+        d.hora_fim,
+        u.nome AS medico_nome,
+        COALESCE(e.nome_especialidade, 'Sem especialidade') AS especialidade_nome
+    FROM "DISPONIBILIDADE" d
+    JOIN "MEDICOS" m ON d.id_medico = m.id_medico
+    JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    WHERE d.id_disponibilidade = p_id_disponibilidade
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter paciente por ID (admin)
+CREATE OR REPLACE FUNCTION obter_paciente_admin_por_id(p_id_paciente INTEGER)
+RETURNS TABLE (
+    id_paciente INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT p.id_paciente, u.nome, u.email
+    FROM "PACIENTES" p
+    JOIN "core_utilizador" u ON p.id_utilizador = u.id_utilizador
+    WHERE p.id_paciente = p_id_paciente
+    LIMIT 1;
+END;
+$$;
+
+-- Função para listar faturas (admin) com filtro opcional por estado
+CREATE OR REPLACE FUNCTION listar_faturas_admin(
+    p_estado VARCHAR DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_fatura INTEGER,
+    id_consulta INTEGER,
+    paciente_nome VARCHAR(255),
+    valor NUMERIC,
+    metodo_pagamento VARCHAR(50),
+    estado VARCHAR(50),
+    data_pagamento DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        f.id_fatura,
+        f.id_consulta,
+        f.paciente_nome,
+        f.valor,
+        f.metodo_pagamento,
+        f.estado_fatura,
+        f.data_pagamento
+    FROM vw_faturas_completas f
+    WHERE (p_estado IS NULL OR p_estado = '' OR f.estado_fatura = p_estado)
+    ORDER BY f.id_fatura DESC
+    LIMIT p_limite;
+END;
+$$;
+
+-- Função para obter fatura por ID (admin)
+CREATE OR REPLACE FUNCTION obter_fatura_admin_por_id(p_id_fatura INTEGER)
+RETURNS TABLE (
+    id_fatura INTEGER,
+    id_consulta INTEGER,
+    paciente_nome VARCHAR(255),
+    valor NUMERIC,
+    metodo_pagamento VARCHAR(50),
+    estado VARCHAR(50),
+    data_pagamento DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        f.id_fatura,
+        f.id_consulta,
+        f.paciente_nome,
+        f.valor,
+        f.metodo_pagamento,
+        f.estado_fatura,
+        f.data_pagamento
+    FROM vw_faturas_completas f
+    WHERE f.id_fatura = p_id_fatura
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter consulta para fatura (admin)
+CREATE OR REPLACE FUNCTION obter_consulta_admin_para_fatura(p_id_consulta INTEGER)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    paciente_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.paciente_nome
+    FROM vw_consultas_completas c
+    WHERE c.id_consulta = p_id_consulta
+    LIMIT 1;
+END;
+$$;
+
+-- Função para verificar se consulta já tem fatura (admin)
+CREATE OR REPLACE FUNCTION verificar_fatura_por_consulta(p_id_consulta INTEGER)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_exists BOOLEAN;
+BEGIN
+    SELECT EXISTS(
+        SELECT 1 FROM "FATURAS" f WHERE f.id_consulta = p_id_consulta
+    ) INTO v_exists;
+    RETURN v_exists;
+END;
+$$;
+
+-- Função para estatísticas de faturas (admin)
+CREATE OR REPLACE FUNCTION obter_estatisticas_faturas_admin()
+RETURNS TABLE (
+    total_faturado NUMERIC,
+    total_pendente NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(CASE WHEN estado = 'paga' THEN valor END), 0) AS total_faturado,
+        COALESCE(SUM(CASE WHEN estado = 'pendente' THEN valor END), 0) AS total_pendente
+    FROM "FATURAS";
+END;
+$$;
+
+-- Funções de relatórios (admin)
+CREATE OR REPLACE FUNCTION relatorio_receitas_periodo(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL
+)
+RETURNS TABLE (
+    total NUMERIC,
+    count BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(valor), 0) AS total,
+        COUNT(*)::BIGINT AS count
+    FROM "FATURAS"
+    WHERE estado = 'paga'
+      AND (p_data_inicio IS NULL OR data_pagamento >= p_data_inicio)
+      AND (p_data_fim IS NULL OR data_pagamento <= p_data_fim);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_por_estado(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL
+)
+RETURNS TABLE (
+    estado VARCHAR(50),
+    total BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT c.estado, COUNT(*)::BIGINT
+    FROM vw_consultas_completas c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id)
+    GROUP BY c.estado
+    ORDER BY COUNT(*) DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_por_medico(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL,
+    p_limite INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+    medico_nome VARCHAR(255),
+    total BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT c.medico_nome, COUNT(*)::BIGINT
+    FROM vw_consultas_completas c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id)
+    GROUP BY c.medico_nome
+    ORDER BY COUNT(*) DESC
+    LIMIT p_limite;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_por_especialidade(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL
+)
+RETURNS TABLE (
+    especialidade_nome VARCHAR(255),
+    total BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT COALESCE(c.nome_especialidade, 'Sem especialidade') AS especialidade_nome,
+           COUNT(*)::BIGINT
+    FROM vw_consultas_completas c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id)
+    GROUP BY COALESCE(c.nome_especialidade, 'Sem especialidade')
+    ORDER BY COUNT(*) DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_faturas_listar(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL
+)
+RETURNS TABLE (
+    id_fatura INTEGER,
+    data_pagamento DATE,
+    valor NUMERIC,
+    estado VARCHAR(50),
+    metodo_pagamento VARCHAR(50),
+    id_consulta INTEGER,
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255),
+    data_consulta DATE,
+    hora_consulta TIME
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        v.id_fatura,
+        v.data_pagamento,
+        v.valor,
+        v.estado_fatura,
+        v.metodo_pagamento,
+        v.id_consulta,
+        v.paciente_nome,
+        v.medico_nome,
+        v.nome_especialidade,
+        v.data_consulta,
+        v.hora_consulta
+    FROM vw_faturas_completas v
+    WHERE (p_data_inicio IS NULL OR v.data_pagamento >= p_data_inicio)
+      AND (p_data_fim IS NULL OR v.data_pagamento <= p_data_fim)
+      AND (p_estado IS NULL OR v.estado_fatura = p_estado)
+    ORDER BY v.id_fatura DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_faturas_stats(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL
+)
+RETURNS TABLE (
+    total_faturas BIGINT,
+    valor_total NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COUNT(*)::BIGINT,
+        COALESCE(SUM(valor), 0)
+    FROM vw_faturas_completas v
+    WHERE (p_data_inicio IS NULL OR v.data_pagamento >= p_data_inicio)
+      AND (p_data_fim IS NULL OR v.data_pagamento <= p_data_fim)
+      AND (p_estado IS NULL OR v.estado_fatura = p_estado);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_faturas_por_estado(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL
+)
+RETURNS TABLE (
+    estado VARCHAR(50),
+    quantidade BIGINT,
+    valor_total NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        v.estado_fatura,
+        COUNT(*)::BIGINT,
+        COALESCE(SUM(v.valor), 0)
+    FROM vw_faturas_completas v
+    WHERE (p_data_inicio IS NULL OR v.data_pagamento >= p_data_inicio)
+      AND (p_data_fim IS NULL OR v.data_pagamento <= p_data_fim)
+      AND (p_estado IS NULL OR v.estado_fatura = p_estado)
+    GROUP BY v.estado_fatura
+    ORDER BY COUNT(*) DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_faturas_detalhes(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_fatura INTEGER,
+    data_pagamento DATE,
+    valor NUMERIC,
+    estado VARCHAR(50),
+    metodo_pagamento VARCHAR(50),
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    id_paciente INTEGER,
+    paciente_nome VARCHAR(255),
+    n_utente VARCHAR(20),
+    id_medico INTEGER,
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        v.id_fatura,
+        v.data_pagamento,
+        v.valor,
+        v.estado_fatura,
+        v.metodo_pagamento,
+        v.id_consulta,
+        v.data_consulta,
+        v.hora_consulta,
+        v.id_paciente,
+        v.paciente_nome,
+        v.n_utente,
+        v.id_medico,
+        v.medico_nome,
+        v.nome_especialidade
+    FROM vw_faturas_completas v
+    WHERE (p_data_inicio IS NULL OR v.data_pagamento >= p_data_inicio)
+      AND (p_data_fim IS NULL OR v.data_pagamento <= p_data_fim)
+      AND (p_estado IS NULL OR v.estado_fatura = p_estado)
+    ORDER BY v.id_fatura DESC
+    LIMIT p_limite;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_listar(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255),
+    estado VARCHAR(50),
+    motivo VARCHAR(255),
+    valor NUMERIC,
+    id_fatura INTEGER,
+    criado_em TIMESTAMP
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.paciente_nome,
+        c.medico_nome,
+        c.nome_especialidade,
+        c.estado,
+        c.motivo,
+        COALESCE(c.fatura_valor, 0),
+        c.id_fatura,
+        c.criado_em::timestamp
+    FROM vw_consultas_com_fatura c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_total(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO v_total
+    FROM vw_consultas_com_fatura c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id);
+
+    RETURN COALESCE(v_total, 0);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION relatorio_consultas_detalhes(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR DEFAULT NULL,
+    p_medico_id INTEGER DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    motivo VARCHAR(255),
+    id_paciente INTEGER,
+    paciente_nome VARCHAR(255),
+    id_medico INTEGER,
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255),
+    id_fatura INTEGER,
+    fatura_valor NUMERIC,
+    fatura_estado VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.motivo,
+        c.id_paciente,
+        c.paciente_nome,
+        c.id_medico,
+        c.medico_nome,
+        c.nome_especialidade,
+        c.id_fatura,
+        c.fatura_valor,
+        c.fatura_estado
+    FROM vw_consultas_com_fatura c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+      AND (p_estado IS NULL OR c.estado = p_estado)
+      AND (p_medico_id IS NULL OR c.id_medico = p_medico_id)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC
+    LIMIT p_limite;
+END;
+$$;
+
 -- Função para listar especialidades
 CREATE OR REPLACE FUNCTION listar_especialidades()
 RETURNS TABLE (
@@ -220,6 +957,101 @@ BEGIN
     SELECT e.id_especialidade, e.nome_especialidade, e.descricao
     FROM "ESPECIALIDADES" e
     ORDER BY e.nome_especialidade;
+END;
+$$;
+
+-- Função para listar especialidades (admin) com nº de médicos
+CREATE OR REPLACE FUNCTION listar_especialidades_admin()
+RETURNS TABLE (
+    id_especialidade INTEGER,
+    nome_especialidade VARCHAR(255),
+    descricao VARCHAR(255),
+    num_medicos BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        e.id_especialidade,
+        e.nome_especialidade,
+        e.descricao,
+        COUNT(m.id_medico) AS num_medicos
+    FROM "ESPECIALIDADES" e
+    LEFT JOIN "MEDICOS" m ON m.id_especialidade = e.id_especialidade
+    GROUP BY e.id_especialidade, e.nome_especialidade, e.descricao
+    ORDER BY e.nome_especialidade;
+END;
+$$;
+
+-- Função para obter especialidade por ID (admin)
+CREATE OR REPLACE FUNCTION obter_especialidade_por_id(p_id_especialidade INTEGER)
+RETURNS TABLE (
+    id_especialidade INTEGER,
+    nome_especialidade VARCHAR(255),
+    descricao VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT e.id_especialidade, e.nome_especialidade, e.descricao
+    FROM "ESPECIALIDADES" e
+    WHERE e.id_especialidade = p_id_especialidade
+    LIMIT 1;
+END;
+$$;
+
+-- Função para listar unidades (admin) com nome da região
+CREATE OR REPLACE FUNCTION listar_unidades_admin()
+RETURNS TABLE (
+    id_unidade INTEGER,
+    nome_unidade VARCHAR(255),
+    morada_unidade VARCHAR(255),
+    tipo_unidade VARCHAR(255),
+    id_regiao INTEGER,
+    nome_regiao VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.id_unidade,
+           u.nome_unidade,
+           u.morada_unidade,
+           u.tipo_unidade,
+           r.id_regiao,
+           r.nome
+    FROM "UNIDADE_DE_SAUDE" u
+    JOIN "REGIAO" r ON u.id_regiao = r.id_regiao
+    ORDER BY u.nome_unidade;
+END;
+$$;
+
+-- Função para obter unidade por ID (admin)
+CREATE OR REPLACE FUNCTION obter_unidade_por_id(p_id_unidade INTEGER)
+RETURNS TABLE (
+    id_unidade INTEGER,
+    nome_unidade VARCHAR(255),
+    morada_unidade VARCHAR(255),
+    tipo_unidade VARCHAR(255),
+    id_regiao INTEGER,
+    nome_regiao VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.id_unidade,
+           u.nome_unidade,
+           u.morada_unidade,
+           u.tipo_unidade,
+           r.id_regiao,
+           r.nome
+    FROM "UNIDADE_DE_SAUDE" u
+    JOIN "REGIAO" r ON u.id_regiao = r.id_regiao
+    WHERE u.id_unidade = p_id_unidade
+    LIMIT 1;
 END;
 $$;
 
@@ -1187,3 +2019,88 @@ BEGIN
     LIMIT 1;
 END;
 $$;
+
+-- Função para obter estatísticas do dashboard admin
+CREATE OR REPLACE FUNCTION obter_dashboard_admin_stats(p_inicio_mes DATE)
+RETURNS TABLE (
+        total_pacientes BIGINT,
+        total_medicos BIGINT,
+        total_enfermeiros BIGINT,
+        total_unidades BIGINT,
+        consultas_hoje_confirmadas BIGINT,
+        consultas_mes_confirmadas BIGINT,
+        consultas_pendentes BIGINT,
+        faturas_pendentes BIGINT,
+        receita_mes NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+        v_hoje DATE := CURRENT_DATE;
+BEGIN
+        SELECT COUNT(*) INTO total_pacientes FROM "PACIENTES";
+        SELECT COUNT(*) INTO total_medicos FROM "MEDICOS";
+        SELECT COUNT(*) INTO total_enfermeiros FROM "ENFERMEIRO";
+        SELECT COUNT(*) INTO total_unidades FROM "UNIDADE_DE_SAUDE";
+
+        SELECT COUNT(*) INTO consultas_hoje_confirmadas
+        FROM "CONSULTAS"
+        WHERE data_consulta = v_hoje
+            AND estado = 'confirmada';
+
+        SELECT COUNT(*) INTO consultas_mes_confirmadas
+        FROM "CONSULTAS"
+        WHERE data_consulta >= p_inicio_mes
+            AND estado = 'confirmada';
+
+        SELECT COUNT(*) INTO consultas_pendentes
+        FROM "CONSULTAS"
+        WHERE estado = 'agendada';
+
+        SELECT COUNT(*) INTO faturas_pendentes
+        FROM "FATURAS"
+        WHERE estado = 'pendente';
+
+        SELECT COALESCE(SUM(valor), 0) INTO receita_mes
+        FROM "FATURAS"
+        WHERE estado = 'paga'
+            AND data_pagamento >= p_inicio_mes;
+
+        RETURN NEXT;
+END;
+$$;
+
+    -- Função para listar regiões (admin)
+    CREATE OR REPLACE FUNCTION listar_regioes_admin()
+    RETURNS TABLE (
+        id_regiao INTEGER,
+        nome VARCHAR(50),
+        tipo_regiao VARCHAR(50)
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT r.id_regiao, r.nome, r.tipo_regiao
+        FROM "REGIAO" r
+        ORDER BY r.nome;
+    END;
+    $$;
+
+    -- Função para obter região por ID (admin)
+    CREATE OR REPLACE FUNCTION obter_regiao_por_id(p_id_regiao INTEGER)
+    RETURNS TABLE (
+        id_regiao INTEGER,
+        nome VARCHAR(50),
+        tipo_regiao VARCHAR(50)
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT r.id_regiao, r.nome, r.tipo_regiao
+        FROM "REGIAO" r
+        WHERE r.id_regiao = p_id_regiao
+        LIMIT 1;
+    END;
+    $$;

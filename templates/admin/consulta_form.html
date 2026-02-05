@@ -53,7 +53,7 @@
                     <select name="paciente" id="paciente" required>
                         <option value="">Selecione um paciente</option>
                         {% for p in pacientes %}
-                        <option value="{{ p.id_paciente }}">{{ p.id_utilizador.nome }} - {{ p.id_utilizador.email }}</option>
+                        <option value="{{ p.id_paciente }}">{{ p.nome }} - {{ p.email }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -82,7 +82,7 @@
 
                 <div class="form-group">
                     <label for="data_consulta">Data: *</label>
-                    <input type="date" name="data_consulta" id="data_consulta" required min="{{ hoje|date:'Y-m-d' }}" onchange="loadDisponibilidades()">
+                    <input type="date" name="data_consulta" id="data_consulta" required min="{{ hoje|date:'Y-m-d' }}" onchange="loadDisponibilidades()" oninput="loadDisponibilidades()">
                 </div>
 
                 <div class="form-group">
@@ -140,16 +140,26 @@
             }
             
             // Build URL with query parameters
-            let url = `/admin-panel/disponibilidades/list/?unidade=${unidade}&data=${data}`;
+            let url = `{% url 'admin_disponibilidades_list' %}?unidade=${encodeURIComponent(unidade)}&data=${encodeURIComponent(data)}`;
             if (especialidade) {
-                url += `&especialidade=${especialidade}`;
+                url += `&especialidade=${encodeURIComponent(especialidade)}`;
             }
             
             // Fetch disponibilidades
             fetch(url)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro ao carregar horários');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     disponibilidadeSelect.innerHTML = '';
+                    
+                    if (data.error) {
+                        disponibilidadeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                        return;
+                    }
                     
                     if (data.disponibilidades.length === 0) {
                         disponibilidadeSelect.innerHTML = '<option value="">Nenhum horário disponível</option>';
@@ -172,6 +182,15 @@
                     disponibilidadeSelect.innerHTML = '<option value="">Erro ao carregar horários</option>';
                 });
         }
+
+        // Carregar disponibilidades no load se já houver filtros preenchidos
+        document.addEventListener('DOMContentLoaded', () => {
+            const unidade = document.getElementById('unidade').value;
+            const data = document.getElementById('data_consulta').value;
+            if (unidade && data) {
+                loadDisponibilidades();
+            }
+        });
 
         // Update time fields when disponibilidade is selected
         function updateTimeFields() {

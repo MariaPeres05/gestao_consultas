@@ -288,3 +288,28 @@ SELECT
        AND c.estado NOT IN ('cancelada')) as slots_disponiveis
 FROM "DISPONIBILIDADE" d
 JOIN "UNIDADE_DE_SAUDE" un ON d.id_unidade = un.id_unidade;
+
+-- View para últimas consultas no dashboard admin
+CREATE OR REPLACE VIEW vw_admin_ultimas_consultas AS
+SELECT
+    c.id_consulta,
+    c.data_consulta,
+    c.hora_consulta,
+    c.estado,
+    u_p.nome as paciente_nome,
+    u_m.nome as medico_nome
+FROM "CONSULTAS" c
+JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+JOIN "core_utilizador" u_p ON p.id_utilizador = u_p.id_utilizador
+JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+JOIN "core_utilizador" u_m ON m.id_utilizador = u_m.id_utilizador;
+
+-- View para consultas com informação de fatura
+CREATE OR REPLACE VIEW vw_consultas_com_fatura AS
+SELECT
+    c.*,
+    f.id_fatura,
+    f.valor AS fatura_valor,
+    f.estado AS fatura_estado
+FROM vw_consultas_completas c
+LEFT JOIN "FATURAS" f ON f.id_consulta = c.id_consulta;

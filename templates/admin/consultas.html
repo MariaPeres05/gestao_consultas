@@ -82,13 +82,13 @@
                     {% for c in consultas %}
                     <tr>
                         <td>{{ c.id_consulta }}</td>
-                        <td>{{ c.id_paciente.id_utilizador.nome }}</td>
-                        <td>{{ c.id_medico.id_utilizador.nome }}</td>
+                        <td>{{ c.paciente_nome }}</td>
+                        <td>{{ c.medico_nome }}</td>
                         <td>{{ c.data_consulta|date:"d/m/Y" }}</td>
                         <td>{{ c.hora_consulta }}</td>
                         <td><span class="badge {{ c.estado }}">{{ c.estado|capfirst }}</span></td>
                         <td>
-                            {% if c.estado != 'cancelada' %}
+                            {% if c.estado != 'cancelada' and c.estado != 'realizada' %}
                             <a href="{% url 'admin_consulta_cancelar' c.id_consulta %}" class="btn btn-danger">Cancelar</a>
                             {% endif %}
                         </td>

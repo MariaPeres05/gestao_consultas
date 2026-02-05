@@ -249,9 +249,11 @@ BEGIN
         RAISE EXCEPTION 'Consulta já está cancelada';
     END IF;
     
-    -- Verificar se está em estado cancelável
-    IF v_estado_atual NOT IN ('agendada', 'confirmada', 'marcada') THEN
-        RAISE EXCEPTION 'Esta consulta não pode ser cancelada';
+    -- Verificar se está em estado cancelável (admin pode cancelar qualquer estado exceto cancelada)
+    IF p_role_utilizador <> 'admin' THEN
+        IF v_estado_atual NOT IN ('agendada', 'confirmada', 'marcada') THEN
+            RAISE EXCEPTION 'Esta consulta não pode ser cancelada';
+        END IF;
     END IF;
     
     -- Verificar regra das 24 horas para pacientes

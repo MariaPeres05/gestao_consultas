@@ -1,0 +1,22 @@
+[
+  {
+    "nome_especialidade": "Medicina do Sono",
+    "descricao": "Distúrbios do sono e terapias associadas"
+  },
+  {
+    "nome_especialidade": "Medicina Aeroespacial",
+    "descricao": "Avaliação de aptidão e saúde em ambientes aeroespaciais"
+  },
+  {
+    "nome_especialidade": "Genética Clínica",
+    "descricao": "Diagnóstico e aconselhamento genético"
+  },
+  {
+    "nome_especialidade": "Medicina Tropical",
+    "descricao": "Doenças infecciosas em ambientes tropicais"
+  },
+  {
+    "nome_especialidade": "Medicina do Trabalho",
+    "descricao": "Saúde ocupacional e prevenção de riscos"
+  }
+]

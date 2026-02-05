@@ -1,0 +1,44 @@
+[
+  {
+    "nome_unidade": "Centro de Saúde de Vila Real",
+    "morada_unidade": "Av. da Saúde 12, Vila Real",
+    "tipo_unidade": "Centro de Saúde",
+    "nome_regiao": "Trás-os-Montes"
+  },
+  {
+    "nome_unidade": "Unidade de Saúde de Castelo Branco",
+    "morada_unidade": "Rua do Hospital 45, Castelo Branco",
+    "tipo_unidade": "Hospital",
+    "nome_regiao": "Beira Interior"
+  },
+  {
+    "nome_unidade": "Clínica do Oeste",
+    "morada_unidade": "Rua da Praia 8, Peniche",
+    "tipo_unidade": "Clínica",
+    "nome_regiao": "Oeste"
+  },
+  {
+    "nome_unidade": "Policlínica Tejo Norte",
+    "morada_unidade": "Av. Tejo 100, Santarém",
+    "tipo_unidade": "Policlínica",
+    "nome_regiao": "Lezíria do Tejo"
+  },
+  {
+    "nome_unidade": "Centro Médico Alto Minho",
+    "morada_unidade": "Largo da Sé 3, Viana do Castelo",
+    "tipo_unidade": "Centro Médico",
+    "nome_regiao": "Alto Minho"
+  },
+  {
+    "nome_unidade": "Hospital do Douro",
+    "morada_unidade": "Rua das Vinhas 77, Peso da Régua",
+    "tipo_unidade": "Hospital",
+    "nome_regiao": "Douro"
+  },
+  {
+    "nome_unidade": "Clínica Terras do Sado",
+    "morada_unidade": "Praça do Mercado 5, Setúbal",
+    "tipo_unidade": "Clínica",
+    "nome_regiao": "Terras do Sado"
+  }
+]

@@ -32,7 +32,19 @@ def login_view(request):
                 return redirect('enfermeiro_dashboard')
             return redirect('home')
         else:
-            messages.error(request, "Email ou password incorretos.")
+            conta_inativa = False
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT ativo FROM \"core_utilizador\" WHERE email = %s LIMIT 1",
+                    [email]
+                )
+                row = cursor.fetchone()
+                if row and row[0] is False:
+                    conta_inativa = True
+            if conta_inativa:
+                messages.error(request, "Conta desativada.")
+            else:
+                messages.error(request, "Email ou password incorretos.")
     return render(request, 'core/login.html')
 
 
