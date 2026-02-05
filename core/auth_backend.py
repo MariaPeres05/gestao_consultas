@@ -9,7 +9,7 @@ class UtilizadorBackend(BaseBackend):
         except Utilizador.DoesNotExist:
             return None
 
-        if user.check_password(password):
+        if user.check_password(password) and user.ativo:
             return user
         return None
 

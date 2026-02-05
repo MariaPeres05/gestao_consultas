@@ -101,7 +101,7 @@
                             {% elif user.role == 'enfermeiro' %}👩‍⚕️
                             {% elif user.role == 'paciente' %}👤
                             {% endif %}
-                            {{ user.get_role_display }}
+                            {{ user.role_display|default:user.role }}
                         </td>
                         <td>
                             {% if user.ativo %}

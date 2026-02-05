@@ -54,7 +54,24 @@
         <div class="content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2>Lista de Regiões</h2>
-                <a href="{% url 'admin_regiao_criar' %}" class="btn btn-success">➕ Criar Região</a>
+                <div>
+                    <a href="{% url 'admin_regiao_criar' %}" class="btn btn-success">➕ Criar Região</a>
+                    <a href="{% url 'admin_regioes_export_csv' %}" class="btn btn-primary">⬇️ Exportar CSV</a>
+                    <a href="{% url 'admin_regioes_export_json' %}" class="btn btn-primary">⬇️ Exportar JSON</a>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                <form method="post" enctype="multipart/form-data" action="{% url 'admin_regioes_import_csv' %}" style="display: inline-block; margin-right: 10px;">
+                    {% csrf_token %}
+                    <input type="file" name="file" accept=".csv" required>
+                    <button type="submit" class="btn btn-success">⬆️ Importar CSV</button>
+                </form>
+                <form method="post" enctype="multipart/form-data" action="{% url 'admin_regioes_import_json' %}" style="display: inline-block;">
+                    {% csrf_token %}
+                    <input type="file" name="file" accept=".json" required>
+                    <button type="submit" class="btn btn-success">⬆️ Importar JSON</button>
+                </form>
             </div>
 
             <table>

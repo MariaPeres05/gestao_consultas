@@ -51,18 +51,30 @@ urlpatterns = [
     path('admin-panel/regioes/criar/', views_admin.admin_regiao_criar, name='admin_regiao_criar'),
     path('admin-panel/regioes/<int:regiao_id>/editar/', views_admin.admin_regiao_editar, name='admin_regiao_editar'),
     path('admin-panel/regioes/<int:regiao_id>/eliminar/', views_admin.admin_regiao_eliminar, name='admin_regiao_eliminar'),
+    path('admin-panel/regioes/export/csv/', views_admin.admin_regioes_export_csv, name='admin_regioes_export_csv'),
+    path('admin-panel/regioes/export/json/', views_admin.admin_regioes_export_json, name='admin_regioes_export_json'),
+    path('admin-panel/regioes/import/csv/', views_admin.admin_regioes_import_csv, name='admin_regioes_import_csv'),
+    path('admin-panel/regioes/import/json/', views_admin.admin_regioes_import_json, name='admin_regioes_import_json'),
     
     # Gestão de Especialidades
     path('admin-panel/especialidades/', views_admin.admin_especialidades, name='admin_especialidades'),
     path('admin-panel/especialidades/criar/', views_admin.admin_especialidade_criar, name='admin_especialidade_criar'),
     path('admin-panel/especialidades/<int:especialidade_id>/editar/', views_admin.admin_especialidade_editar, name='admin_especialidade_editar'),
     path('admin-panel/especialidades/<int:especialidade_id>/eliminar/', views_admin.admin_especialidade_eliminar, name='admin_especialidade_eliminar'),
+    path('admin-panel/especialidades/export/csv/', views_admin.admin_especialidades_export_csv, name='admin_especialidades_export_csv'),
+    path('admin-panel/especialidades/export/json/', views_admin.admin_especialidades_export_json, name='admin_especialidades_export_json'),
+    path('admin-panel/especialidades/import/csv/', views_admin.admin_especialidades_import_csv, name='admin_especialidades_import_csv'),
+    path('admin-panel/especialidades/import/json/', views_admin.admin_especialidades_import_json, name='admin_especialidades_import_json'),
     
     # Gestão de Unidades
     path('admin-panel/unidades/', views_admin.admin_unidades, name='admin_unidades'),
     path('admin-panel/unidades/criar/', views_admin.admin_unidade_criar, name='admin_unidade_criar'),
     path('admin-panel/unidades/<int:unidade_id>/editar/', views_admin.admin_unidade_editar, name='admin_unidade_editar'),
     path('admin-panel/unidades/<int:unidade_id>/eliminar/', views_admin.admin_unidade_eliminar, name='admin_unidade_eliminar'),
+    path('admin-panel/unidades/export/csv/', views_admin.admin_unidades_export_csv, name='admin_unidades_export_csv'),
+    path('admin-panel/unidades/export/json/', views_admin.admin_unidades_export_json, name='admin_unidades_export_json'),
+    path('admin-panel/unidades/import/csv/', views_admin.admin_unidades_import_csv, name='admin_unidades_import_csv'),
+    path('admin-panel/unidades/import/json/', views_admin.admin_unidades_import_json, name='admin_unidades_import_json'),
     
     # Gestão de Utilizadores
     path('admin-panel/utilizadores/', views_admin.admin_utilizadores, name='admin_utilizadores'),

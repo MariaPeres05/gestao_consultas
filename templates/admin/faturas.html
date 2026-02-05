@@ -88,8 +88,8 @@
                     {% for f in faturas %}
                     <tr>
                         <td>{{ f.id_fatura }}</td>
-                        <td>{{ f.id_consulta.id_consulta }}</td>
-                        <td>{{ f.id_consulta.id_paciente.id_utilizador.nome }}</td>
+                        <td>{{ f.id_consulta }}</td>
+                        <td>{{ f.paciente_nome }}</td>
                         <td>€{{ f.valor }}</td>
                         <td>{{ f.metodo_pagamento|capfirst }}</td>
                         <td>{{ f.estado|capfirst }}</td>
