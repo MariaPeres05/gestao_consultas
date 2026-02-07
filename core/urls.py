@@ -87,6 +87,7 @@ urlpatterns = [
     path('admin-panel/consultas/criar/', views_admin.admin_consulta_criar, name='admin_consulta_criar'),
     path('admin-panel/consultas/<int:consulta_id>/cancelar/', views_admin.admin_consulta_cancelar, name='admin_consulta_cancelar'),
     path('admin-panel/disponibilidades/list/', views_admin.admin_disponibilidades_list, name='admin_disponibilidades_list'),
+    path('enfermeiro/disponibilidades/list/', views_enfermeiro.enfermeiro_disponibilidades_list, name='enfermeiro_disponibilidades_list'),
     
     # Gestão de Faturas
     path('admin-panel/faturas/', views_admin.admin_faturas, name='admin_faturas'),

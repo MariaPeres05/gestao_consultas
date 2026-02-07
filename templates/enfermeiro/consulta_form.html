@@ -136,23 +136,38 @@
             }
             
             // Build URL with query parameters
-            let url = `/admin-panel/disponibilidades/list/?unidade=${unidade}&data=${data}`;
+            let url = `{% url 'enfermeiro_disponibilidades_list' %}?unidade=${encodeURIComponent(unidade)}&data=${encodeURIComponent(data)}`;
             if (especialidade) {
-                url += `&especialidade=${especialidade}`;
+                url += `&especialidade=${encodeURIComponent(especialidade)}`;
             }
             
             // Fetch disponibilidades
             fetch(url)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro ao carregar horários');
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    disponibilidadeSelect.innerHTML = '';
+                    
+                    if (data.error) {
+                        disponibilidadeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                        return;
+                    }
+                    
                     if (data.disponibilidades && data.disponibilidades.length > 0) {
                         disponibilidadeSelect.innerHTML = '<option value="">Selecione um horário</option>';
                         data.disponibilidades.forEach(disp => {
                             const option = document.createElement('option');
                             option.value = disp.id;
-                            option.textContent = `Dr(a). ${disp.medico} - ${disp.hora_inicio} às ${disp.hora_fim}`;
                             option.dataset.horaInicio = disp.hora_inicio;
                             option.dataset.horaFim = disp.hora_fim;
+                            option.textContent = `Dr(a). ${disp.medico_nome} - ${disp.hora_inicio} às ${disp.hora_fim}`;
+                            if (disp.especialidade) {
+                                option.textContent += ` (${disp.especialidade})`;
+                            }
                             disponibilidadeSelect.appendChild(option);
                         });
                     } else {
@@ -169,10 +184,19 @@
         function updateTimeFields() {
             const disponibilidadeSelect = document.getElementById('disponibilidade');
             const selectedOption = disponibilidadeSelect.options[disponibilidadeSelect.selectedIndex];
+            const horaInicio = document.getElementById('hora_inicio');
+            const horaFim = document.getElementById('hora_fim');
             
             if (selectedOption.dataset.horaInicio) {
-                document.getElementById('hora_inicio').value = selectedOption.dataset.horaInicio;
-                document.getElementById('hora_fim').value = selectedOption.dataset.horaFim;
+                horaInicio.value = selectedOption.dataset.horaInicio;
+                horaInicio.min = selectedOption.dataset.horaInicio;
+                horaInicio.max = selectedOption.dataset.horaFim;
+            }
+            
+            if (selectedOption.dataset.horaFim) {
+                horaFim.value = selectedOption.dataset.horaFim;
+                horaFim.min = selectedOption.dataset.horaInicio;
+                horaFim.max = selectedOption.dataset.horaFim;
             }
         }
     </script>

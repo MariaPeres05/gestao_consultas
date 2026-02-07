@@ -1692,6 +1692,346 @@ BEGIN
 END;
 $$;
 
+-- ============================================================================
+-- FUNÇÕES PARA ENFERMEIRO (Dashboard e Consultas)
+-- ============================================================================
+
+-- Função para obter enfermeiro pelo utilizador
+CREATE OR REPLACE FUNCTION obter_enfermeiro_por_utilizador(p_id_utilizador INTEGER)
+RETURNS TABLE (
+    id_enfermeiro INTEGER,
+    id_utilizador INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    n_ordem_enf VARCHAR(50),
+    unidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        e.id_enfermeiro,
+        u.id_utilizador,
+        u.nome,
+        u.email,
+        u.telefone,
+        e.n_ordem_enf,
+        NULL::VARCHAR(255) AS unidade_nome
+    FROM "ENFERMEIRO" e
+    JOIN "core_utilizador" u ON e.id_utilizador = u.id_utilizador
+    WHERE u.id_utilizador = p_id_utilizador
+    LIMIT 1;
+END;
+$$;
+
+-- Função para estatísticas do dashboard do enfermeiro
+CREATE OR REPLACE FUNCTION obter_estatisticas_enfermeiro()
+RETURNS TABLE (
+    consultas_hoje INTEGER,
+    consultas_pendentes INTEGER,
+    pacientes_semana INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_hoje DATE := CURRENT_DATE;
+    v_inicio_semana DATE := DATE_TRUNC('week', CURRENT_DATE)::DATE;
+BEGIN
+    SELECT COUNT(*) INTO consultas_hoje
+    FROM "CONSULTAS"
+    WHERE data_consulta = v_hoje
+      AND estado = 'confirmada';
+
+    SELECT COUNT(*) INTO consultas_pendentes
+    FROM "CONSULTAS"
+    WHERE estado IN ('agendada', 'marcada', 'confirmada');
+
+    SELECT COUNT(DISTINCT id_paciente) INTO pacientes_semana
+    FROM "CONSULTAS"
+    WHERE data_consulta >= v_inicio_semana
+      AND estado = 'realizada';
+
+    RETURN NEXT;
+END;
+$$;
+
+-- Função para listar consultas com filtros (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_consultas_enfermeiro(
+    p_estado VARCHAR DEFAULT NULL,
+    p_data DATE DEFAULT NULL,
+    p_id_medico INTEGER DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.paciente_nome,
+        c.medico_nome,
+        c.nome_especialidade
+    FROM vw_consultas_completas c
+    WHERE (p_estado IS NULL OR p_estado = '' OR c.estado = p_estado)
+      AND (p_data IS NULL OR c.data_consulta = p_data)
+      AND (p_id_medico IS NULL OR c.id_medico = p_id_medico)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC
+    LIMIT p_limite;
+END;
+$$;
+
+-- Função para listar próximas consultas (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_proximas_consultas_enfermeiro(
+    p_limite INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    paciente_nome VARCHAR(255),
+    medico_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.paciente_nome,
+        c.medico_nome
+    FROM vw_consultas_completas c
+    WHERE c.data_consulta >= CURRENT_DATE
+      AND c.estado IN ('agendada', 'marcada', 'confirmada')
+    ORDER BY c.data_consulta, c.hora_consulta
+    LIMIT p_limite;
+END;
+$$;
+
+-- Função para listar médicos (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_medicos_enfermeiro()
+RETURNS TABLE (
+    id_medico INTEGER,
+    nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        m.id_medico,
+        u.nome,
+        e.nome_especialidade
+    FROM "MEDICOS" m
+    JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    ORDER BY u.nome;
+END;
+$$;
+
+-- Função para listar pacientes com consultas (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_pacientes_enfermeiro(
+    p_search VARCHAR DEFAULT NULL
+)
+RETURNS TABLE (
+    id_paciente INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    n_utente VARCHAR(20),
+    total_consultas BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.id_paciente,
+        u.nome,
+        u.email,
+        u.telefone,
+        u.n_utente,
+        COUNT(c.id_consulta)::BIGINT as total_consultas
+    FROM "PACIENTES" p
+    JOIN "core_utilizador" u ON p.id_utilizador = u.id_utilizador
+    JOIN "CONSULTAS" c ON c.id_paciente = p.id_paciente
+    WHERE u.ativo = TRUE
+      AND (
+          p_search IS NULL OR p_search = ''
+          OR u.nome ILIKE '%' || p_search || '%'
+          OR u.email ILIKE '%' || p_search || '%'
+          OR u.n_utente ILIKE '%' || p_search || '%'
+      )
+    GROUP BY p.id_paciente, u.nome, u.email, u.telefone, u.n_utente
+    ORDER BY u.nome;
+END;
+$$;
+
+-- Função para obter detalhes do paciente (enfermeiro)
+CREATE OR REPLACE FUNCTION obter_paciente_detalhes_enfermeiro(
+    p_id_paciente INTEGER
+)
+RETURNS TABLE (
+    id_paciente INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    n_utente VARCHAR(20),
+    data_nasc DATE,
+    genero VARCHAR(50),
+    morada VARCHAR(255),
+    alergias VARCHAR(255),
+    observacoes VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.id_paciente,
+        u.nome,
+        u.email,
+        u.telefone,
+        u.n_utente,
+        p.data_nasc,
+        p.genero,
+        COALESCE(p.morada, ''),
+        COALESCE(p.alergias, ''),
+        COALESCE(p.observacoes, '')
+    FROM "PACIENTES" p
+    JOIN "core_utilizador" u ON p.id_utilizador = u.id_utilizador
+    WHERE p.id_paciente = p_id_paciente
+    LIMIT 1;
+END;
+$$;
+
+-- Função para listar consultas do paciente (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_consultas_paciente_enfermeiro(
+    p_id_paciente INTEGER
+)
+RETURNS TABLE (
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.medico_nome,
+        c.nome_especialidade
+    FROM vw_consultas_completas c
+    WHERE c.id_paciente = p_id_paciente
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC;
+END;
+$$;
+
+-- Função para listar faturas do paciente (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_faturas_paciente_enfermeiro(
+    p_id_paciente INTEGER
+)
+RETURNS TABLE (
+    data_pagamento DATE,
+    valor NUMERIC,
+    metodo_pagamento VARCHAR(50),
+    estado VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        f.data_pagamento,
+        f.valor,
+        f.metodo_pagamento,
+        f.estado
+    FROM "FATURAS" f
+    JOIN "CONSULTAS" c ON f.id_consulta = c.id_consulta
+    WHERE c.id_paciente = p_id_paciente
+    ORDER BY f.data_pagamento DESC NULLS LAST, f.id_fatura DESC;
+END;
+$$;
+
+-- Função para listar receitas do paciente (enfermeiro)
+CREATE OR REPLACE FUNCTION listar_receitas_paciente_enfermeiro(
+    p_id_paciente INTEGER
+)
+RETURNS TABLE (
+    data_prescricao DATE,
+    medicamento VARCHAR(255),
+    dosagem VARCHAR(255),
+    medico_nome VARCHAR(255)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        r.data_prescricao,
+        r.medicamento,
+        r.dosagem,
+        u.nome as medico_nome
+    FROM "RECEITAS" r
+    JOIN "CONSULTAS" c ON r.id_consulta = c.id_consulta
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+    WHERE c.id_paciente = p_id_paciente
+    ORDER BY r.id_receita DESC;
+END;
+$$;
+
+-- Função para totais do relatório do enfermeiro
+CREATE OR REPLACE FUNCTION obter_totais_relatorio_enfermeiro(
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL
+)
+RETURNS TABLE (
+    total_consultas BIGINT,
+    total_receitas BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COUNT(*)::BIGINT AS total_consultas,
+        (
+            SELECT COUNT(*)::BIGINT
+            FROM "RECEITAS" r
+            JOIN "CONSULTAS" c2 ON r.id_consulta = c2.id_consulta
+            WHERE (p_data_inicio IS NULL OR c2.data_consulta >= p_data_inicio)
+              AND (p_data_fim IS NULL OR c2.data_consulta <= p_data_fim)
+        ) AS total_receitas
+    FROM "CONSULTAS" c
+    WHERE (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+      AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim);
+END;
+$$;
+
 -- Função para obter disponibilidades futuras para agendamento
 CREATE OR REPLACE FUNCTION obter_disponibilidades_agendar_medico(
     p_id_medico INTEGER,
