@@ -31,6 +31,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.db_role_middleware.DatabaseRoleMiddleware',
 ]
 
 ROOT_URLCONF = 'gestao_consultas.urls'

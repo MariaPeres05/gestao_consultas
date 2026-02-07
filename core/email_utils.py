@@ -213,15 +213,15 @@ def enviar_lembretes_2h():
     
     consultas = Consulta.objects.filter(
         estado='confirmada',
-        data=agora.date(),
-    ).select_related('paciente', 'medico', 'medico__especialidade', 'medico__unidade_saude')
+        data_consulta=agora.date(),
+    ).select_related('id_paciente', 'id_medico', 'id_medico__id_especialidade', 'id_medico__id_unidade_saude')
     
     emails_enviados = 0
     
     for consulta in consultas:
         # Combinar data e hora para comparação precisa
         data_hora_consulta = timezone.make_aware(
-            timezone.datetime.combine(consulta.data, consulta.hora_inicio)
+            timezone.datetime.combine(consulta.data_consulta, consulta.hora_consulta)
         )
         
         # Verificar se está na janela de 2h
