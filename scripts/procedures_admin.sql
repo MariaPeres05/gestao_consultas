@@ -16,6 +16,129 @@ BEGIN
 END;
 $$;
 
+-- Marcar consulta pelo enfermeiro (com validações)
+CREATE OR REPLACE PROCEDURE enfermeiro_marcar_consulta(
+	p_id_utilizador INTEGER,
+	p_id_paciente INTEGER,
+	p_id_disponibilidade INTEGER,
+	p_hora_inicio TIME,
+	p_hora_fim TIME,
+	p_motivo VARCHAR(255),
+	OUT mensagem VARCHAR(500),
+	OUT sucesso BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_id_medico INTEGER;
+	v_data DATE;
+	v_disp_hora_inicio TIME;
+	v_disp_hora_fim TIME;
+	v_duracao_slot INTEGER;
+	v_consultas_count INTEGER;
+	v_total_slots INTEGER;
+	v_criado_por INTEGER;
+BEGIN
+	sucesso := FALSE;
+
+	-- Validar enfermeiro
+	SELECT e.id_utilizador INTO v_criado_por
+	FROM "ENFERMEIRO" e
+	WHERE e.id_utilizador = p_id_utilizador
+	LIMIT 1;
+
+	IF v_criado_por IS NULL THEN
+		mensagem := 'Enfermeiro não encontrado';
+		RETURN;
+	END IF;
+
+	-- Validar paciente
+	IF NOT EXISTS (
+		SELECT 1
+		FROM "PACIENTES" p
+		JOIN "core_utilizador" u ON p.id_utilizador = u.id_utilizador
+		WHERE p.id_paciente = p_id_paciente
+		AND u.ativo = TRUE
+	) THEN
+		mensagem := 'Paciente não encontrado ou inativo';
+		RETURN;
+	END IF;
+
+	-- Obter disponibilidade
+	SELECT d.id_medico, d.data, d.hora_inicio, d.hora_fim, d.duracao_slot
+	INTO v_id_medico, v_data, v_disp_hora_inicio, v_disp_hora_fim, v_duracao_slot
+	FROM "DISPONIBILIDADE" d
+	WHERE d.id_disponibilidade = p_id_disponibilidade
+	AND d.status_slot IN ('disponivel', 'available')
+	FOR UPDATE;
+
+	IF v_id_medico IS NULL THEN
+		mensagem := 'Disponibilidade não encontrada ou indisponível';
+		RETURN;
+	END IF;
+
+	-- Validar data
+	IF v_data < CURRENT_DATE THEN
+		mensagem := 'Não é possível marcar consultas para datas passadas';
+		RETURN;
+	END IF;
+
+	-- Validar horas
+	IF p_hora_inicio >= p_hora_fim THEN
+		mensagem := 'A hora de início deve ser anterior à hora de fim';
+		RETURN;
+	END IF;
+
+	IF p_hora_inicio < v_disp_hora_inicio OR p_hora_fim > v_disp_hora_fim THEN
+		mensagem := 'O horário da consulta deve estar dentro do horário disponível do médico';
+		RETURN;
+	END IF;
+
+	-- Verificar conflito de horário
+	IF EXISTS (
+		SELECT 1 FROM "CONSULTAS"
+		WHERE id_medico = v_id_medico
+		AND data_consulta = v_data
+		AND hora_consulta >= p_hora_inicio
+		AND hora_consulta < p_hora_fim
+		AND estado IN ('agendada', 'confirmada', 'marcada')
+	) THEN
+		mensagem := 'Já existe uma consulta agendada para este horário';
+		RETURN;
+	END IF;
+
+	-- Criar consulta (aguarda confirmações)
+	INSERT INTO "CONSULTAS" (
+		id_paciente, id_medico, id_disponibilidade,
+		data_consulta, hora_consulta, motivo,
+		estado, medico_aceitou, paciente_aceitou,
+		paciente_presente, criado_em, criado_por
+	) VALUES (
+		p_id_paciente, v_id_medico, p_id_disponibilidade,
+		v_data, p_hora_inicio, COALESCE(p_motivo, 'Marcação pelo enfermeiro'),
+		'agendada', FALSE, FALSE,
+		FALSE, CURRENT_TIMESTAMP, v_criado_por
+	);
+
+	-- Atualizar disponibilidade se necessário
+	v_total_slots := EXTRACT(EPOCH FROM (v_disp_hora_fim - v_disp_hora_inicio)) / 60 / v_duracao_slot;
+	SELECT COUNT(*) INTO v_consultas_count
+	FROM "CONSULTAS"
+	WHERE id_disponibilidade = p_id_disponibilidade
+	AND estado NOT IN ('cancelada');
+
+	IF v_consultas_count >= v_total_slots THEN
+		UPDATE "DISPONIBILIDADE"
+		SET status_slot = 'booked'
+		WHERE id_disponibilidade = p_id_disponibilidade;
+	END IF;
+
+	mensagem := 'Consulta agendada com sucesso. Aguarda confirmação do médico e do paciente.';
+	sucesso := TRUE;
+	COMMIT;
+END;
+$$;
+
 -- Editar região (admin)
 CREATE OR REPLACE PROCEDURE admin_editar_regiao(
 	p_id_regiao INTEGER,
