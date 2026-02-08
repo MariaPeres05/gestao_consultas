@@ -1,21 +1,9 @@
 -- ============================================================================
 -- ROLES E PRIVILÉGIOS (PostgreSQL)
---
--- Substituir:
---   <DB_NAME>              nome da base de dados
---   <APP_PACIENTE_USER>    utilizador de login para pacientes
---   <APP_MEDICO_USER>      utilizador de login para médicos
---   <APP_ENFERMEIRO_USER>  utilizador de login para enfermeiros
---   <APP_ADMIN_USER>       utilizador de login para admin
---   <PASSWORD_*>           passwords
 -- ============================================================================
 
--- Recomendações:
--- 1) Executar com um superuser.
--- 2) Depois ajustar no Django o user/password de cada ambiente.
-
 -- Segurança: remover privilégios públicos
-REVOKE ALL ON DATABASE "<DB_NAME>" FROM PUBLIC;
+REVOKE ALL ON DATABASE gestao_consultas_test FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 
 -- Roles base (sem login)
@@ -39,7 +27,7 @@ BEGIN
 END $$;
 
 -- Permitir ligação à BD
-GRANT CONNECT ON DATABASE "<DB_NAME>" TO app_base, app_paciente, app_medico, app_enfermeiro, app_admin;
+GRANT CONNECT ON DATABASE gestao_consultas_test TO app_base, app_paciente, app_medico, app_enfermeiro, app_admin;
 
 -- Uso do schema
 GRANT USAGE ON SCHEMA public TO app_base, app_paciente, app_medico, app_enfermeiro, app_admin;
@@ -73,6 +61,16 @@ GRANT SELECT, UPDATE ON TABLE
     "DISPONIBILIDADE"
 TO app_enfermeiro;
 
+GRANT SELECT ON TABLE
+    "RECEITAS",
+    "PACIENTES",
+    "MEDICOS",
+    "ENFERMEIROS",
+    "core_utilizador",
+    "ESPECIALIDADES",
+    "UNIDADE_DE_SAUDE"
+TO app_enfermeiro;
+
 -- Admin: acesso total às tabelas do sistema
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_admin;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO app_admin;
@@ -93,20 +91,28 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_admin;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO app_admin;
 
--- Users de login (exemplo)
+-- Users de login
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '<APP_PACIENTE_USER>') THEN
-        CREATE ROLE "<APP_PACIENTE_USER>" LOGIN PASSWORD '<PASSWORD_PACIENTE>' IN ROLE app_paciente;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_paciente_user') THEN
+        CREATE ROLE app_paciente_user LOGIN PASSWORD 'w6b@AA5V#A4MhD!XtihLu!paER' IN ROLE app_paciente;
+    ELSE
+        GRANT app_paciente TO app_paciente_user;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '<APP_MEDICO_USER>') THEN
-        CREATE ROLE "<APP_MEDICO_USER>" LOGIN PASSWORD '<PASSWORD_MEDICO>' IN ROLE app_medico;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_medico_user') THEN
+        CREATE ROLE app_medico_user LOGIN PASSWORD 'D&VDBV4rae$L7R*wZ&ut72Jue&' IN ROLE app_medico;
+    ELSE
+        GRANT app_medico TO app_medico_user;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '<APP_ENFERMEIRO_USER>') THEN
-        CREATE ROLE "<APP_ENFERMEIRO_USER>" LOGIN PASSWORD '<PASSWORD_ENFERMEIRO>' IN ROLE app_enfermeiro;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_enfermeiro_user') THEN
+        CREATE ROLE app_enfermeiro_user LOGIN PASSWORD '5Pb3Qb&MN*J8U&cLckHu5ozsSC' IN ROLE app_enfermeiro;
+    ELSE
+        GRANT app_enfermeiro TO app_enfermeiro_user;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '<APP_ADMIN_USER>') THEN
-        CREATE ROLE "<APP_ADMIN_USER>" LOGIN PASSWORD '<PASSWORD_ADMIN>' IN ROLE app_admin;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_admin_user') THEN
+        CREATE ROLE app_admin_user LOGIN PASSWORD '7V4&RR^C9cRrg*Sk$ahk7kjGeC' IN ROLE app_admin;
+    ELSE
+        GRANT app_admin TO app_admin_user;
     END IF;
 END $$;
 

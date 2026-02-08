@@ -1,11 +1,9 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db import connection
-from django.db.models import Q, Count
 from datetime import datetime, timedelta
-from .models import Medico, Consulta, Disponibilidade, Paciente, Receita
 from .decorators import role_required
 from .mongo_client import NotasClinicasService
 import logging
@@ -17,18 +15,23 @@ logger = logging.getLogger(__name__)
 @role_required('medico')
 def medico_dashboard(request):
     """Dashboard principal do médico usando funções e procedimentos PostgreSQL"""
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
+    # Obter médico usando SQL
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_medico_por_id_utilizador(%s)", [request.user.id_utilizador])
+        medico_row = cursor.fetchone()
+    
+    if not medico_row:
         messages.error(request, "Perfil de médico não encontrado.")
         return redirect('index')
+    
+    medico_id = medico_row[0]
     
     hoje = timezone.now().date()
     
     try:
         # Opção 1: Usar procedimento único (mais eficiente)
         with connection.cursor() as cursor:
-            cursor.callproc('obter_dashboard_medico', [medico.id_medico])
+            cursor.callproc('obter_dashboard_medico', [medico_id])
             result = cursor.fetchone()
             
             if result:
@@ -57,7 +60,7 @@ def medico_dashboard(request):
         # Obter próximas consultas usando função
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM obter_proximas_consultas_medico(%s, %s)", 
-                         [medico.id_medico, 10])
+                         [medico_id, 10])
             proximas_consultas = []
             for row in cursor.fetchall():
                 consulta_dict = {
@@ -80,7 +83,7 @@ def medico_dashboard(request):
         # Usar funções individuais
         consultas_hoje = []
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM obter_consultas_hoje_medico(%s)", [medico.id_medico])
+            cursor.execute("SELECT * FROM obter_consultas_hoje_medico(%s)", [medico_id])
             for row in cursor.fetchall():
                 consulta_dict = {
                     'id_consulta': row[0],
@@ -94,21 +97,21 @@ def medico_dashboard(request):
                 consultas_hoje.append(consulta_dict)
         
         with connection.cursor() as cursor:
-            cursor.execute("SELECT contar_consultas_semana_medico(%s)", [medico.id_medico])
+            cursor.execute("SELECT contar_consultas_semana_medico(%s)", [medico_id])
             consultas_semana = cursor.fetchone()[0] or 0
             
         with connection.cursor() as cursor:
-            cursor.execute("SELECT contar_consultas_mes_medico(%s)", [medico.id_medico])
+            cursor.execute("SELECT contar_consultas_mes_medico(%s)", [medico_id])
             consultas_mes = cursor.fetchone()[0] or 0
             
         with connection.cursor() as cursor:
-            cursor.execute("SELECT contar_pedidos_pendentes_medico(%s)", [medico.id_medico])
+            cursor.execute("SELECT contar_pedidos_pendentes_medico(%s)", [medico_id])
             pedidos_pendentes = cursor.fetchone()[0] or 0
             
         proximas_consultas = []
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM obter_proximas_consultas_medico(%s, %s)", 
-                         [medico.id_medico, 10])
+                         [medico_id, 10])
             for row in cursor.fetchall():
                 consulta_dict = {
                     'id_consulta': row[0],
@@ -131,8 +134,11 @@ def medico_dashboard(request):
             'disponibilidades_disponiveis': 0,
         }
     
+    # Create a simple medico dict for context
+    medico_dict = {'id_medico': medico_id}
+    
     context = {
-        'medico': medico,
+        'medico': medico_dict,
         'consultas_hoje': consultas_hoje,
         'consultas_semana': consultas_semana,
         'consultas_mes': consultas_mes,
@@ -424,14 +430,18 @@ def medico_agenda(request):
 @role_required('medico')
 def medico_excluir_disponibilidade(request, disponibilidade_id):
     """Excluir uma disponibilidade que não está ocupada usando procedimento SQL"""
-    from core.models import Medico
     from django.db import connection
     
-    try:
-        medico = Medico.objects.get(id_utilizador=request.user)
-    except Medico.DoesNotExist:
+    # Obter médico usando SQL
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_medico_por_id_utilizador(%s)", [request.user.id_utilizador])
+        medico_row = cursor.fetchone()
+    
+    if not medico_row:
         messages.error(request, "Perfil de médico não encontrado.")
         return redirect('index')
+    
+    medico_id = medico_row[0]
     
     try:
         with connection.cursor() as cursor:
@@ -442,7 +452,7 @@ def medico_excluir_disponibilidade(request, disponibilidade_id):
                     NULL, -- mensagem (OUT)
                     NULL  -- sucesso (OUT)
                 )
-            """, [disponibilidade_id, medico.id_medico])
+            """, [disponibilidade_id, medico_id])
             
             # Obter os parâmetros de saída do CALL
             result = cursor.fetchone()
@@ -636,36 +646,80 @@ def medico_cancelar_consulta(request, consulta_id):
 
 @login_required
 @role_required('medico')
-@login_required
-@role_required('medico')
 def medico_detalhes_consulta(request, consulta_id):
     """Ver detalhes da consulta e informações do paciente"""
-    medico = Medico.objects.get(id_utilizador=request.user)
-    consulta = get_object_or_404(
-        Consulta.objects.select_related('id_paciente__id_utilizador'),
-        id_consulta=consulta_id,
-        id_medico=medico
-    )
+    # Obter médico usando SQL
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_medico_por_id_utilizador(%s)", [request.user.id_utilizador])
+        medico_row = cursor.fetchone()
     
-    paciente = consulta.id_paciente
+    if not medico_row:
+        messages.error(request, "Perfil de médico não encontrado.")
+        return redirect('index')
+    
+    medico_id = medico_row[0]
+    
+    # Obter consulta com relações
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_consulta_com_relacoes(%s)", [consulta_id])
+        consulta_row = cursor.fetchone()
+    
+    if not consulta_row or consulta_row[2] != medico_id:  # row[2] is id_medico
+        messages.error(request, "Consulta não encontrada.")
+        return redirect('medico_dashboard')
+    
+    # Build consulta dict
+    consulta_dict = {
+        'id_consulta': consulta_row[0],
+        'id_paciente': consulta_row[1],
+        'id_medico': consulta_row[2],
+        'data_consulta': consulta_row[3],
+        'hora_consulta': consulta_row[4],
+        'estado': consulta_row[5],
+        'motivo': consulta_row[6],
+        'paciente_nome': consulta_row[7],
+        'paciente_email': consulta_row[8],
+        'paciente_telefone': consulta_row[9],
+        'medico_nome': consulta_row[10],
+        'especialidade_nome': consulta_row[11],
+        'nome_unidade': consulta_row[12],
+    }
+    
+    paciente_id = consulta_dict['id_paciente']
     
     # Histórico de consultas do paciente com este médico
-    historico = Consulta.objects.filter(
-        id_paciente=paciente,
-        id_medico=medico,
-        estado='realizada'
-    ).order_by('-data_consulta')[:10]
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_historico_consultas_paciente(%s, %s)", [paciente_id, medico_id])
+        historico = []
+        for row in cursor.fetchall():
+            historico.append({
+                'id_consulta': row[0],
+                'data_consulta': row[1],
+                'hora_consulta': row[2],
+                'estado': row[3],
+                'motivo': row[4],
+                'medico_nome': row[5],
+                'especialidade_nome': row[6],
+            })
     
     # Get notas clínicas from MongoDB if available
     notas_clinicas_service = NotasClinicasService()
     mongo_notes = notas_clinicas_service.get_note_by_consulta(consulta_id)
     
     # Get all patient notes from MongoDB
-    patient_history_notes = notas_clinicas_service.get_notes_by_patient(paciente.id_paciente, limit=10)
+    patient_history_notes = notas_clinicas_service.get_notes_by_patient(paciente_id, limit=10)
+    
+    # Build paciente dict
+    paciente_dict = {
+        'id_paciente': paciente_id,
+        'nome': consulta_dict['paciente_nome'],
+        'email': consulta_dict['paciente_email'],
+        'telefone': consulta_dict['paciente_telefone'],
+    }
     
     context = {
-        'consulta': consulta,
-        'paciente': paciente,
+        'consulta': consulta_dict,
+        'paciente': paciente_dict,
         'historico': historico,
         'mongo_notes': mongo_notes,
         'patient_history_notes': patient_history_notes,
@@ -678,8 +732,35 @@ def medico_detalhes_consulta(request, consulta_id):
 @role_required('medico')
 def medico_registar_consulta(request, consulta_id):
     """Registar notas médicas e receitas após a consulta - salva no MongoDB"""
-    medico = Medico.objects.get(id_utilizador=request.user)
-    consulta = get_object_or_404(Consulta, id_consulta=consulta_id, id_medico=medico)
+    # Obter médico usando SQL
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_medico_por_id_utilizador(%s)", [request.user.id_utilizador])
+        medico_row = cursor.fetchone()
+    
+    if not medico_row:
+        messages.error(request, "Perfil de médico não encontrado.")
+        return redirect('index')
+    
+    medico_id = medico_row[0]
+    
+    # Obter consulta
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM obter_consulta_com_relacoes(%s)", [consulta_id])
+        consulta_row = cursor.fetchone()
+    
+    if not consulta_row or consulta_row[2] != medico_id:
+        messages.error(request, "Consulta não encontrada.")
+        return redirect('medico_dashboard')
+    
+    consulta_dict = {
+        'id_consulta': consulta_row[0],
+        'id_paciente': consulta_row[1],
+        'id_medico': consulta_row[2],
+        'data_consulta': consulta_row[3],
+        'hora_consulta': consulta_row[4],
+        'estado': consulta_row[5],
+        'motivo': consulta_row[6],
+    }
     
     if request.method == 'POST':
         # Collect all notas clínicas data
@@ -713,39 +794,43 @@ def medico_registar_consulta(request, consulta_id):
         
         # Save to MongoDB - update if exists, create if not
         notas_clinicas_service = NotasClinicasService()
-        existing_note = notas_clinicas_service.get_note_by_consulta(consulta.id_consulta)
+        existing_note = notas_clinicas_service.get_note_by_consulta(consulta_dict['id_consulta'])
         
         if existing_note is not None:
             # Update existing note
-            success = notas_clinicas_service.update_note(consulta.id_consulta, notes_data)
+            success = notas_clinicas_service.update_note(consulta_dict['id_consulta'], notes_data)
             if success:
-                logger.info(f"Updated nota clínica for consulta {consulta.id_consulta}")
+                logger.info(f"Updated nota clínica for consulta {consulta_dict['id_consulta']}")
             note_id = existing_note.get('_id')
         else:
             # Create new note
             note_id = notas_clinicas_service.create_note(
-                consulta_id=consulta.id_consulta,
-                medico_id=medico.id_medico,
-                paciente_id=consulta.id_paciente.id_paciente,
+                consulta_id=consulta_dict['id_consulta'],
+                medico_id=medico_id,
+                paciente_id=consulta_dict['id_paciente'],
                 notes_data=notes_data
             )
 
         
-        # Update consulta status in PostgreSQL (but don't store notes - they're in MongoDB)
-        consulta.estado = 'realizada'
-        consulta.save()
+        # Update consulta status in PostgreSQL using stored procedure
+        with connection.cursor() as cursor:
+            cursor.execute("CALL atualizar_estado_consulta(%s, %s)", [consulta_dict['id_consulta'], 'realizada'])
         
-        # Create receita if prescriptions exist
+        # Create receita if prescriptions exist (using stored procedure)
         if notes_data['prescricoes']:
             for prescricao in notes_data['prescricoes']:
                 if prescricao.strip():
-                    Receita.objects.create(
-                        id_consulta=consulta,
-                        medicamento=prescricao,
-                        dosagem='Conforme prescrição',
-                        instrucoes=notes_data['diagnostico'][:255],
-                        data_prescricao=timezone.now().date()
-                    )
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "CALL inserir_receita(%s, %s, %s, %s, %s)",
+                            [
+                                consulta_dict['id_consulta'],
+                                prescricao,
+                                'Conforme prescrição',
+                                notes_data['diagnostico'][:255],
+                                timezone.now().date()
+                            ]
+                        )
         
         if note_id or success:
             messages.success(request, "Consulta registada com sucesso! Notas clínicas salvas no MongoDB.")
@@ -760,7 +845,7 @@ def medico_registar_consulta(request, consulta_id):
     mongo_notes = notas_clinicas_service.get_note_by_consulta(consulta_id)
     
     context = {
-        'consulta': consulta,
+        'consulta': consulta_dict,
         'mongo_notes': mongo_notes,
         'existing_notes': mongo_notes,  # Keep both for compatibility
     }

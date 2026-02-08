@@ -8,7 +8,7 @@ from django.utils.html import strip_tags
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
-from .models import Consulta
+from django.db import connection
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +42,34 @@ def enviar_email_confirmacao(consulta_id):
         consulta_id: ID da consulta confirmada
     """
     try:
-        consulta = Consulta.objects.select_related(
-            'paciente', 'medico', 'medico__especialidade', 'medico__unidade_saude'
-        ).get(id=consulta_id)
+        # Obter consulta usando SQL
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_consulta_com_relacoes(%s)", [consulta_id])
+            consulta_row = cursor.fetchone()
+        
+        if not consulta_row:
+            logger.error(f"Consulta {consulta_id} não encontrada")
+            return
+        
+        consulta_dict = {
+            'id_consulta': consulta_row[0],
+            'data_consulta': consulta_row[3],
+            'hora_consulta': consulta_row[4],
+            'motivo': consulta_row[6],
+            'paciente_nome': consulta_row[7],
+            'paciente_email': consulta_row[8],
+            'medico_nome': consulta_row[10],
+            'especialidade_nome': consulta_row[11],
+            'nome_unidade': consulta_row[12],
+        }
         
         # Renderizar o template HTML
         html_message = render_to_string('emails/confirmacao_consulta.html', {
-            'consulta': consulta,
+            'consulta': consulta_dict,
         })
         
         subject = 'Consulta Confirmada - MediPulse'
-        recipient_list = [consulta.paciente.email]
+        recipient_list = [consulta_dict['paciente_email']]
         
         # Enviar email em thread separada (non-blocking)
         thread = threading.Thread(
@@ -64,8 +81,6 @@ def enviar_email_confirmacao(consulta_id):
         
         logger.info(f"Thread de email de confirmação iniciada para consulta {consulta_id}")
         
-    except Consulta.DoesNotExist:
-        logger.error(f"Consulta {consulta_id} não encontrada")
     except Exception as e:
         logger.error(f"Erro ao preparar email de confirmação para consulta {consulta_id}: {str(e)}")
 
@@ -79,29 +94,38 @@ def enviar_email_cancelamento(consulta_id, motivo_cancelamento=''):
         motivo_cancelamento: Motivo do cancelamento (opcional)
     """
     try:
-        consulta = Consulta.objects.select_related(
-            'paciente', 'medico', 'medico__especialidade', 'medico__unidade_saude'
-        ).get(id=consulta_id)
+        # Obter consulta usando SQL
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_consulta_com_relacoes(%s)", [consulta_id])
+            consulta_row = cursor.fetchone()
         
-        # Determinar quem cancelou
-        if hasattr(consulta, 'cancelado_por') and consulta.cancelado_por:
-            if consulta.cancelado_por == consulta.paciente:
-                motivo_texto = "por si"
-            elif consulta.cancelado_por == consulta.medico:
-                motivo_texto = "pelo médico"
-            else:
-                motivo_texto = "pelo sistema"
-        else:
-            motivo_texto = "pelo sistema"
+        if not consulta_row:
+            logger.error(f"Consulta {consulta_id} não encontrada")
+            return
+        
+        consulta_dict = {
+            'id_consulta': consulta_row[0],
+            'data_consulta': consulta_row[3],
+            'hora_consulta': consulta_row[4],
+            'motivo': consulta_row[6],
+            'paciente_nome': consulta_row[7],
+            'paciente_email': consulta_row[8],
+            'medico_nome': consulta_row[10],
+            'especialidade_nome': consulta_row[11],
+            'nome_unidade': consulta_row[12],
+        }
+        
+        # Default motivo texto
+        motivo_texto = motivo_cancelamento if motivo_cancelamento else "pelo sistema"
         
         # Renderizar o template HTML
         html_message = render_to_string('emails/cancelamento_consulta.html', {
-            'consulta': consulta,
+            'consulta': consulta_dict,
             'motivo_texto': motivo_texto,
         })
         
         subject = 'Consulta Cancelada - MediPulse'
-        recipient_list = [consulta.paciente.email]
+        recipient_list = [consulta_dict['paciente_email']]
         
         # Enviar email em thread separada (non-blocking)
         thread = threading.Thread(
@@ -113,8 +137,6 @@ def enviar_email_cancelamento(consulta_id, motivo_cancelamento=''):
         
         logger.info(f"Thread de email de cancelamento iniciada para consulta {consulta_id}")
         
-    except Consulta.DoesNotExist:
-        logger.error(f"Consulta {consulta_id} não encontrada")
     except Exception as e:
         logger.error(f"Erro ao preparar email de cancelamento para consulta {consulta_id}: {str(e)}")
 
@@ -128,18 +150,35 @@ def enviar_lembrete(consulta_id, tempo_restante):
         tempo_restante: Texto descrevendo quanto tempo falta ("amanhã", "daqui a 2 horas")
     """
     try:
-        consulta = Consulta.objects.select_related(
-            'paciente', 'medico', 'medico__especialidade', 'medico__unidade_saude'
-        ).get(id=consulta_id)
+        # Obter consulta usando SQL
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM obter_consulta_com_relacoes(%s)", [consulta_id])
+            consulta_row = cursor.fetchone()
+        
+        if not consulta_row:
+            logger.error(f"Consulta {consulta_id} não encontrada")
+            return
+        
+        consulta_dict = {
+            'id_consulta': consulta_row[0],
+            'data_consulta': consulta_row[3],
+            'hora_consulta': consulta_row[4],
+            'motivo': consulta_row[6],
+            'paciente_nome': consulta_row[7],
+            'paciente_email': consulta_row[8],
+            'medico_nome': consulta_row[10],
+            'especialidade_nome': consulta_row[11],
+            'nome_unidade': consulta_row[12],
+        }
         
         # Renderizar o template HTML
         html_message = render_to_string('emails/lembrete_consulta.html', {
-            'consulta': consulta,
+            'consulta': consulta_dict,
             'tempo_restante': tempo_restante,
         })
         
         subject = f'Lembrete: Consulta {tempo_restante} - MediPulse'
-        recipient_list = [consulta.paciente.email]
+        recipient_list = [consulta_dict['paciente_email']]
         
         # Enviar email em thread separada (non-blocking)
         thread = threading.Thread(
@@ -151,8 +190,6 @@ def enviar_lembrete(consulta_id, tempo_restante):
         
         logger.info(f"Thread de lembrete iniciada para consulta {consulta_id}")
         
-    except Consulta.DoesNotExist:
-        logger.error(f"Consulta {consulta_id} não encontrada")
     except Exception as e:
         logger.error(f"Erro ao preparar lembrete para consulta {consulta_id}: {str(e)}")
 
@@ -173,27 +210,36 @@ def enviar_lembretes_24h():
     inicio_janela = agora + timedelta(hours=23)
     fim_janela = agora + timedelta(hours=25)
     
-    consultas = Consulta.objects.filter(
-        estado='confirmada',
-        data__gte=inicio_janela.date(),
-        data__lte=fim_janela.date(),
-    ).select_related('paciente', 'medico', 'medico__especialidade', 'medico__unidade_saude')
+    # Use SQL to get consultas
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id_consulta, data_consulta, hora_consulta
+            FROM "CONSULTAS"
+            WHERE estado = 'confirmada'
+            AND data_consulta BETWEEN %s AND %s
+        """, [inicio_janela.date(), fim_janela.date()])
+        
+        consultas = cursor.fetchall()
     
     emails_enviados = 0
     
-    for consulta in consultas:
+    for consulta_row in consultas:
+        consulta_id = consulta_row[0]
+        data_consulta = consulta_row[1]
+        hora_consulta = consulta_row[2]
+        
         # Combinar data e hora para comparação precisa
         data_hora_consulta = timezone.make_aware(
-            timezone.datetime.combine(consulta.data, consulta.hora_inicio)
+            timezone.datetime.combine(data_consulta, hora_consulta)
         )
         
         # Verificar se está na janela de 24h
         if inicio_janela <= data_hora_consulta <= fim_janela:
             try:
-                enviar_lembrete(consulta.id, 'amanhã')
+                enviar_lembrete(consulta_id, 'amanhã')
                 emails_enviados += 1
             except Exception as e:
-                logger.error(f"Erro ao enviar lembrete 24h para consulta {consulta.id}: {str(e)}")
+                logger.error(f"Erro ao enviar lembrete 24h para consulta {consulta_id}: {str(e)}")
     
     logger.info(f"Tarefa enviar_lembretes_24h concluída. {emails_enviados} emails enviados.")
     return f"{emails_enviados} lembretes de 24h enviados"
@@ -211,26 +257,36 @@ def enviar_lembretes_2h():
     inicio_janela = agora + timedelta(hours=1.5)
     fim_janela = agora + timedelta(hours=2.5)
     
-    consultas = Consulta.objects.filter(
-        estado='confirmada',
-        data_consulta=agora.date(),
-    ).select_related('id_paciente', 'id_medico', 'id_medico__id_especialidade', 'id_medico__id_unidade_saude')
+    # Use SQL to get consultas
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id_consulta, data_consulta, hora_consulta
+            FROM "CONSULTAS"
+            WHERE estado = 'confirmada'
+            AND data_consulta = %s
+        """, [agora.date()])
+        
+        consultas = cursor.fetchall()
     
     emails_enviados = 0
     
-    for consulta in consultas:
+    for consulta_row in consultas:
+        consulta_id = consulta_row[0]
+        data_consulta = consulta_row[1]
+        hora_consulta = consulta_row[2]
+        
         # Combinar data e hora para comparação precisa
         data_hora_consulta = timezone.make_aware(
-            timezone.datetime.combine(consulta.data_consulta, consulta.hora_consulta)
+            timezone.datetime.combine(data_consulta, hora_consulta)
         )
         
         # Verificar se está na janela de 2h
         if inicio_janela <= data_hora_consulta <= fim_janela:
             try:
-                enviar_lembrete(consulta.id, 'daqui a 2 horas')
+                enviar_lembrete(consulta_id, 'daqui a 2 horas')
                 emails_enviados += 1
             except Exception as e:
-                logger.error(f"Erro ao enviar lembrete 2h para consulta {consulta.id}: {str(e)}")
+                logger.error(f"Erro ao enviar lembrete 2h para consulta {consulta_id}: {str(e)}")
     
     logger.info(f"Tarefa enviar_lembretes_2h concluída. {emails_enviados} emails enviados.")
     return f"{emails_enviados} lembretes de 2h enviados"

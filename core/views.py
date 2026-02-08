@@ -1,7 +1,7 @@
 # core/views.py
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, logout
 from django.contrib import messages
 from datetime import datetime, timedelta
 from django.db import connection, transaction
@@ -20,7 +20,11 @@ def login_view(request):
         password = request.POST.get('password')
         user = authenticate(request, email=email, password=password)
         if user:
-            login(request, user)
+            # Manual session storage (bypass Django's login())
+            request.session['_auth_user_id'] = str(user.pk)
+            request.session['_auth_user_backend'] = user.backend
+            request.session.save()
+            
             # Redirect based on user role
             if user.role == 'medico':
                 return redirect('medico_dashboard')

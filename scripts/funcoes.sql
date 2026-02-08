@@ -2444,3 +2444,308 @@ $$;
         LIMIT 1;
     END;
     $$;
+
+    -- ============================================================================
+-- FUNÇÕES PARA SUBSTITUIR ORM
+-- Estas funções são criadas para eliminar o uso do Django ORM
+-- ============================================================================
+
+-- Função para obter Medico pelo id_utilizador
+CREATE OR REPLACE FUNCTION obter_medico_por_id_utilizador(p_id_utilizador INTEGER)
+RETURNS TABLE (
+    id_medico INTEGER,
+    id_utilizador INTEGER,
+    numero_ordem VARCHAR(50),
+    id_especialidade INTEGER,
+    especialidade_nome VARCHAR(255)
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        m.id_medico,
+        m.id_utilizador,
+        m.numero_ordem,
+        m.id_especialidade,
+        e.nome_especialidade
+    FROM "MEDICOS" m
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    WHERE m.id_utilizador = p_id_utilizador
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter Consulta com informações relacionadas
+CREATE OR REPLACE FUNCTION obter_consulta_com_relacoes(p_id_consulta INTEGER)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    id_paciente INTEGER,
+    id_medico INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    motivo TEXT,
+    paciente_nome VARCHAR(255),
+    paciente_email VARCHAR(255),
+    paciente_telefone VARCHAR(20),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255),
+    nome_unidade VARCHAR(255)
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        c.id_consulta,
+        c.id_paciente,
+        c.id_medico,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.motivo,
+        pac_u.nome as paciente_nome,
+        pac_u.email as paciente_email,
+        pac_u.telefone as paciente_telefone,
+        med_u.nome as medico_nome,
+        e.nome_especialidade as especialidade_nome,
+        u.nome_unidade as unidade_nome
+    FROM "CONSULTAS" c
+    JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+    JOIN "core_utilizador" pac_u ON p.id_utilizador = pac_u.id_utilizador
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" med_u ON m.id_utilizador = med_u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    LEFT JOIN "DISPONIBILIDADE" d ON c.id_disponibilidade = d.id_disponibilidade
+    LEFT JOIN "UNIDADE_DE_SAUDE" u ON d.id_unidade = u.id_unidade
+    WHERE c.id_consulta = p_id_consulta
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter histórico de consultas de um paciente
+CREATE OR REPLACE FUNCTION obter_historico_consultas_paciente(
+    p_id_paciente INTEGER,
+    p_id_medico INTEGER DEFAULT NULL,
+    p_estado VARCHAR(50) DEFAULT 'realizada',
+    p_limite INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    motivo TEXT,
+    observacoes TEXT,
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255)
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        c.id_consulta,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.motivo,
+        c.observacoes,
+        u.nome as medico_nome,
+        e.nome_especialidade as especialidade_nome
+    FROM "CONSULTAS" c
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" u ON m.id_utilizador = u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    WHERE c.id_paciente = p_id_paciente
+    AND (p_id_medico IS NULL OR c.id_medico = p_id_medico)
+    AND (p_estado IS NULL OR c.estado = p_estado)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC
+    LIMIT p_limite;
+END;
+$$;
+
+-- Função para obter utilizador por email
+CREATE OR REPLACE FUNCTION obter_utilizador_completo_por_email(p_email VARCHAR)
+RETURNS TABLE (
+    id_utilizador INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    password VARCHAR(128),
+    telefone VARCHAR(20),
+    n_utente VARCHAR(20),
+    role VARCHAR(20),
+    data_registo TIMESTAMPTZ,
+    ativo BOOLEAN,
+    email_verified BOOLEAN,
+    last_login TIMESTAMPTZ,
+    is_superuser BOOLEAN
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.id_utilizador,
+        u.nome,
+        u.email,
+        u.password,
+        u.telefone,
+        u.n_utente,
+        u.role,
+        u.data_registo,
+        u.ativo,
+        u.email_verified,
+        u.last_login,
+        COALESCE(u.is_superuser, FALSE) as is_superuser
+    FROM "core_utilizador" u
+    WHERE u.email = p_email
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter utilizador por primary key
+CREATE OR REPLACE FUNCTION obter_utilizador_completo_por_pk(p_id_utilizador INTEGER)
+RETURNS TABLE (
+    id_utilizador INTEGER,
+    nome VARCHAR(255),
+    email VARCHAR(255),
+    password VARCHAR(128),
+    telefone VARCHAR(20),
+    n_utente VARCHAR(20),
+    role VARCHAR(20),
+    data_registo TIMESTAMPTZ,
+    ativo BOOLEAN,
+    email_verified BOOLEAN,
+    last_login TIMESTAMPTZ,
+    is_superuser BOOLEAN
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.id_utilizador,
+        u.nome,
+        u.email,
+        u.password,
+        u.telefone,
+        u.n_utente,
+        u.role,
+        u.data_registo,
+        u.ativo,
+        u.email_verified,
+        u.last_login,
+        COALESCE(u.is_superuser, FALSE) as is_superuser
+    FROM "core_utilizador" u
+    WHERE u.id_utilizador = p_id_utilizador
+    LIMIT 1;
+END;
+$$;
+
+-- Função para obter consultas com filtros de data
+CREATE OR REPLACE FUNCTION obter_consultas_com_filtros(
+    p_id_paciente INTEGER DEFAULT NULL,
+    p_id_medico INTEGER DEFAULT NULL,
+    p_data_inicio DATE DEFAULT NULL,
+    p_data_fim DATE DEFAULT NULL,
+    p_estado VARCHAR(50) DEFAULT NULL,
+    p_limite INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    id_consulta INTEGER,
+    id_paciente INTEGER,
+    id_medico INTEGER,
+    data_consulta DATE,
+    hora_consulta TIME,
+    estado VARCHAR(50),
+    motivo TEXT,
+    paciente_nome VARCHAR(255),
+    paciente_email VARCHAR(255),
+    medico_nome VARCHAR(255),
+    especialidade_nome VARCHAR(255),
+    unidade_nome VARCHAR(255)
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        c.id_consulta,
+        c.id_paciente,
+        c.id_medico,
+        c.data_consulta,
+        c.hora_consulta,
+        c.estado,
+        c.motivo,
+        pac_u.nome as paciente_nome,
+        pac_u.email as paciente_email,
+        med_u.nome as medico_nome,
+        e.nome_especialidade as especialidade_nome,
+        u.nome_unidade as unidade_nome
+    FROM "CONSULTAS" c
+    JOIN "PACIENTES" p ON c.id_paciente = p.id_paciente
+    JOIN "core_utilizador" pac_u ON p.id_utilizador = pac_u.id_utilizador
+    JOIN "MEDICOS" m ON c.id_medico = m.id_medico
+    JOIN "core_utilizador" med_u ON m.id_utilizador = med_u.id_utilizador
+    LEFT JOIN "ESPECIALIDADES" e ON m.id_especialidade = e.id_especialidade
+    LEFT JOIN "DISPONIBILIDADE" d ON c.id_disponibilidade = d.id_disponibilidade
+    LEFT JOIN "UNIDADE_DE_SAUDE" u ON d.id_unidade = u.id_unidade
+    WHERE (p_id_paciente IS NULL OR c.id_paciente = p_id_paciente)
+    AND (p_id_medico IS NULL OR c.id_medico = p_id_medico)
+    AND (p_data_inicio IS NULL OR c.data_consulta >= p_data_inicio)
+    AND (p_data_fim IS NULL OR c.data_consulta <= p_data_fim)
+    AND (p_estado IS NULL OR c.estado = p_estado)
+    ORDER BY c.data_consulta DESC, c.hora_consulta DESC
+    LIMIT p_limite;
+END;
+$$;
+
+-- Procedure para inserir receita
+CREATE OR REPLACE PROCEDURE inserir_receita(
+    p_id_consulta INTEGER,
+    p_medicamento VARCHAR(255),
+    p_dosagem VARCHAR(255),
+    p_instrucoes TEXT,
+    p_data_prescricao DATE,
+    OUT p_id_receita INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO "RECEITAS" (
+        id_consulta,
+        medicamento,
+        dosagem,
+        instrucoes,
+        data_prescricao
+    ) VALUES (
+        p_id_consulta,
+        p_medicamento,
+        p_dosagem,
+        p_instrucoes,
+        p_data_prescricao
+    )
+    RETURNING id_receita INTO p_id_receita;
+    
+    COMMIT;
+END;
+$$;
+
+-- Procedure para atualizar estado da consulta
+CREATE OR REPLACE PROCEDURE atualizar_estado_consulta(
+    p_id_consulta INTEGER,
+    p_novo_estado VARCHAR(50)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE "CONSULTAS"
+    SET estado = p_novo_estado,
+        modificado_em = NOW()
+    WHERE id_consulta = p_id_consulta;
+    
+    COMMIT;
+END;
+$$;
